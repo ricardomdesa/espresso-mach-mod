@@ -13,10 +13,10 @@ Roadmap de implementação. Cada épico possui um SDD em `docs/sdd/NNN-*.md` que
 | # | Épico | Escopo | Depende de | Status |
 |---|-------|--------|-----------|--------|
 | 1 | **Display OLED + navegação** | Scaffold do projeto PlatformIO, driver SSD1306 (I2C), gerenciador de telas, botão de navegação, cronômetro de extração. Valores de sensores simulados (fakes) para validação visual. | — | SDD pronto (`001-oled-display.md`) |
-| 2 | **Sensores: temperatura e pressão** | MAX6675 (SPI, termopar K), transdutor de pressão 0–150 PSI via ADC + divisor de tensão, calibração de offset/ganho, publicação no modelo de dados. | 1 (usa o modelo de dados do display) | Pendente |
-| 3 | **Controle: PID temperatura + bomba** | PID de temperatura com SSR (PWM baixa frequência), dimmer AC zero-cross p/ bomba Ulka, setpoints fixos no firmware (MVP). | 2 | Pendente |
-| 4 | **Integração MVP + calibração** | Loop de controle completo, extração (start/stop atrelado à bomba, cronômetro real), ajuste fino PID no hardware, teste de extração real, documentação de calibração. | 3 | Pendente |
-| 5+ | **Fase 2 (futuro, sem SDD)** | Wi-Fi + WiFiManager, mDNS (`philco.local`), REST/WebSocket, app React + Capacitor, NVS p/ persistir config, balança. | 4 | Futuro |
+| 2 | **Sensor: temperatura** | MAX6675 (SPI, termopar K), calibração de offset/ganho, publicação no modelo de dados. | 1 (usa o modelo de dados do display) | SDD pronto (`002-sensor-temperatura.md`) |
+| 3 | **Controle: PID temperatura + bomba** | PID de temperatura com SSR (3-32VDC, PWM baixa frequência), dimmer AC zero-cross p/ bomba Ulka, setpoints fixos no firmware (MVP). | 2 | SDD pronto (`003-pid-temperatura-bomba.md`) |
+| 4 | **Integração MVP + calibração** | Loop de controle completo, extração (start/stop atrelado à bomba, cronômetro real), ajuste fino PID no hardware, teste de extração real, documentação de calibração. | 3 | SDD pronto (`004-integracao-calibracao.md`) |
+| 5+ | **Fase 2 (futuro, sem SDD)** | Sensor de pressão (transdutor 0–150 PSI via ADC + divisor de tensão) e adição ao modelo de dados; Wi-Fi + WiFiManager, mDNS (`philco.local`), REST/WebSocket, app React + Capacitor, NVS p/ persistir config, balança. | 4 | Futuro |
 
 ## Decisões entre épicos
 
