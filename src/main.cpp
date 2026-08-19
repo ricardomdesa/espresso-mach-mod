@@ -72,6 +72,9 @@ void loop() {
 
     if (button.longPressed()) {
         model.timer().reset();
+        if (screenManager.index() == kTimerScreenIndex) {
+            screenManager.next(); // volta p/ Tela 1 (única saída do "modo timer")
+        }
     }
 
     screenManager.draw(display, model);

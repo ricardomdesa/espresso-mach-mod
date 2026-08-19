@@ -1,6 +1,6 @@
 # SDD-001 — Épico 1: Display OLED + Navegação
 
-- **Status:** Em implementação — firmware gravado e validado (build/boot/I2C); falta confirmação visual e instalação do botão
+- **Status:** Concluído — validado em hardware real (build, boot, I2C, visual, botão)
 - **Épico:** 1 de 4 (MVP)
 - **Pré-requisitos:** nenhum (primeiro épico)
 - **Hardware alvo:** ESP32-C3 Super Mini, OLED SSD1306 128x64 I2C, 1 botão tátil
@@ -74,6 +74,19 @@ O MVP precisa de uma interface local mínima na máquina: temperatura atual/setp
 - **Escolha:** Tela 1 = temp + pressão (layout do `ARCHITECTURE.md`); Tela 2 = cronômetro em destaque (fonte grande).
 - **Por quê:** 128x64 é justo para 3 linhas + legibilidade no balcão; o documento já previa "pode virar 2 telas com botão de navegação".
 
+### D8 — Layout respeita a fronteira amarelo/azul do painel físico (achado visual)
+
+- **Achado (teste com hardware):** o OLED físico usado é bicolor — faixa amarela fixa em `y=0..15`, faixa azul em `y=16..63`. Texto grande (`setTextSize(2)`, 16px) posicionado cruzando `y=16` fica ilegível (metade em cada cor).
+- **Fix:** todo texto respeita a fronteira — nada de `setCursor` com y entre ~10 e ~20 para texto de tamanho ≥2. Layout final da Tela 1: setpoints pequenos na faixa amarela (`y=4`), `TEMP`/`PRESSAO` lado a lado com valor grande abaixo, com espaço, tudo dentro da faixa azul (`y≥16`). Tela 2: temp/pressão atuais (sem unidade) na faixa amarela, status + cronômetro grande na faixa azul.
+- **Por quê importa p/ próximos épicos:** qualquer tela nova (épicos 2-4) deve seguir essa mesma regra de layout.
+
+### D7 — Volta da Tela 2 via long_press (achado em teste com hardware)
+
+- **Achado (teste com botão físico):** com click fazendo `screens.next()` na Tela 1 mas `timer.toggle()` na Tela 2 (D2/fluxo original), não sobrava gesto pra voltar — usuário ficava preso na Tela 2 (start/stop/reset funcionavam, navegação não). Violava F6 ("ciclo sem deadlock").
+- **Fix:** `long_press` passa a fazer reset **e**, se a tela ativa for a do timer, navega de volta pra Tela 1 (`screenManager.next()`, cicla de volta ao índice 0). Em qualquer outra tela, `long_press` só reseta (no-op visual, sem efeito colateral).
+- **Por quê:** único gesto livre com 1 botão só; reset + volta é o fluxo natural (usuário termina extração, reseta, sai da tela do timer).
+- **Efeito:** F7 ("reset em qualquer tela") preservado; F6 (ciclo sem deadlock) corrigido.
+
 ### D6 — Serial via USB CDC nativo (não UART0)
 
 - **Achado (implementação):** `Serial` do Arduino core, por padrão no board `esp32-c3-devkitm-1`, mapeia p/ UART0 (pinos físicos não conectados no Super Mini) — não p/ o USB-C onboard. Só o bootloader ROM aparece na porta `/dev/cu.usbmodemXXXX`; `Serial.print()` do firmware some sem log e sem erro.
@@ -140,9 +153,9 @@ loop()
 | Smoke | upload via USB | `pio run -t upload` OK | ✅ OK, porta `/dev/cu.usbmodem1101` |
 | Hardware | gravação + boot | OLED acende, log de boot sem crash | ✅ boot limpo, heap 307216 bytes livres |
 | I2C | scanner no boot | endereço do display no Serial | ✅ `Dispositivo I2C encontrado em 0x3C` |
-| Visual | Tela 1 com fakes | temp/pressão variando, legíveis | ⏳ pendente confirmação visual do usuário |
-| Visual | Tela 2 com fakes | cronômetro grande, contando | ⏳ pendente confirmação visual do usuário |
-| Interação | botão | navega, start/stop, reset | ⏳ bloqueado — botão físico ainda não instalado |
+| Visual | Tela 1 com fakes | temp/pressão variando, legíveis | ✅ confirmado (layout lado a lado, setpoints em cima) |
+| Visual | Tela 2 com fakes | cronômetro grande, contando | ✅ confirmado (temp/pressão na faixa amarela) |
+| Interação | botão | navega, start/stop, reset | ✅ confirmado — click navega/toggle, long_press reseta e volta à Tela 1 ([[D7]]) |
 
 ## 8. Riscos e Mitigações
 
@@ -171,8 +184,8 @@ loop()
 - [x] `pio run` limpo
 - [x] Upload + boot sem crash
 - [x] Scanner I2C detecta o OLED
-- [ ] Tela 1 e Tela 2 desenhadas com dados dos fakes — pendente confirmação visual
-- [ ] Botão: navega, start/stop do timer, long-press reset — pendente instalação do botão físico
+- [x] Tela 1 e Tela 2 desenhadas com dados dos fakes
+- [x] Botão: navega, start/stop do timer, long-press reset
 - [x] `DisplayModel` consumido por telas (fonte única, por construção — `Screens.cpp` só lê `DisplayModel`)
 
 ## 11. Deferred (Fase 2 — fora deste épico)
