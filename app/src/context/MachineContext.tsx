@@ -61,19 +61,41 @@ const initialState: MachineState = {
 export const MachineProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(machineReducer, initialState)
 
-  const wsUrl = state.baseUrl ? `ws://${new URL(state.baseUrl).host}/ws` : null
+  const wsUrl = useMemo(() => {
+    if (!state.baseUrl) return null
+    try {
+      return `ws://${new URL(state.baseUrl).host}/ws`
+    } catch {
+      return null
+    }
+  }, [state.baseUrl])
   const { state: wsState, lastFrame, lastEvent } = useWebSocket(wsUrl)
 
   const api = useMemo(() => {
     return state.baseUrl ? createApiClient(state.baseUrl) : null
   }, [state.baseUrl])
 
+  const refreshStatus = useCallback(async () => {
+    if (!api) return
+    const status = await api.getStatus()
+    dispatch({ type: 'SET_STATUS', payload: status })
+  }, [api])
+
+  const refreshProfiles = useCallback(async () => {
+    if (!api) return
+    const profiles = await api.getProfiles()
+    dispatch({ type: 'SET_PROFILES', payload: profiles })
+  }, [api])
+
   React.useEffect(() => {
     const isOpen = wsState === 'open'
     if (isOpen !== state.connected) {
       dispatch({ type: 'SET_CONNECTED', payload: isOpen })
     }
-  }, [wsState, state.connected])
+    if (isOpen) {
+      refreshStatus().catch(() => {})
+    }
+  }, [wsState, state.connected, refreshStatus])
 
   React.useEffect(() => {
     if (lastFrame) {
@@ -95,18 +117,6 @@ export const MachineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     dispatch({ type: 'SET_BASE_URL', payload: null })
     dispatch({ type: 'SET_CONNECTED', payload: false })
   }, [])
-
-  const refreshStatus = useCallback(async () => {
-    if (!api) return
-    const status = await api.getStatus()
-    dispatch({ type: 'SET_STATUS', payload: status })
-  }, [api])
-
-  const refreshProfiles = useCallback(async () => {
-    if (!api) return
-    const profiles = await api.getProfiles()
-    dispatch({ type: 'SET_PROFILES', payload: profiles })
-  }, [api])
 
   const value = useMemo(
     () => ({

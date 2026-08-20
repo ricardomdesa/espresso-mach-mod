@@ -1,8 +1,11 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ExtractionProfile, ProfileStep } from '../api/types'
+import { useMachine } from '../context/MachineContext'
 import { useMachineApi } from '../hooks/useMachineApi'
 import { validateProfile } from '../utils/validators'
+import Screen from '../components/Screen'
+import { chartColors } from '../theme'
 
 const emptyProfile: Omit<ExtractionProfile, 'id'> = {
   name: '',
@@ -10,15 +13,74 @@ const emptyProfile: Omit<ExtractionProfile, 'id'> = {
   steps: [{ time_s: 0, pressure_bar: 0 }],
 }
 
+const MAX_PRESSURE_BAR = 12
+
+/** Previa read-only da curva pressao x tempo montada pelos steps. */
+const CurvePreview: React.FC<{ steps: ProfileStep[] }> = ({ steps }) => {
+  const w = 300
+  const h = 96
+  const maxTime = Math.max(...steps.map((s) => s.time_s), 1)
+  const points = steps
+    .map((s) => {
+      const x = (s.time_s / maxTime) * w
+      const y = h - (Math.min(s.pressure_bar, MAX_PRESSURE_BAR) / MAX_PRESSURE_BAR) * h
+      return `${x.toFixed(1)},${y.toFixed(1)}`
+    })
+    .join(' ')
+
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="h-24 w-full" preserveAspectRatio="none">
+      <line x1="0" y1={h / 2} x2={w} y2={h / 2} stroke={chartColors.grid} strokeWidth="1" />
+      <polyline
+        points={points}
+        fill="none"
+        stroke={chartColors.press}
+        strokeWidth="2"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  )
+}
+
 const ProfileEditorScreen: React.FC = () => {
   const navigate = useNavigate()
   const { id } = useParams<{ id?: string }>()
   const isEditing = Boolean(id)
+  const { profiles, refreshProfiles } = useMachine()
   const { createProfile, updateProfile } = useMachineApi()
 
   const [profile, setProfile] = useState<Omit<ExtractionProfile, 'id'>>(emptyProfile)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [loadingProfile, setLoadingProfile] = useState(isEditing)
+  const [notFound, setNotFound] = useState(false)
+
+  useEffect(() => {
+    if (!isEditing || !id) return
+    let cancelled = false
+    setLoadingProfile(true)
+    refreshProfiles().finally(() => {
+      if (!cancelled) setLoadingProfile(false)
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
+
+  useEffect(() => {
+    if (!isEditing || !id || loadingProfile) return
+    const existing = profiles.find((p) => p.id === id)
+    if (existing) {
+      const { id: _unused, ...rest } = existing
+      setProfile(rest)
+      setNotFound(false)
+    } else {
+      setNotFound(true)
+    }
+  }, [isEditing, id, profiles, loadingProfile])
 
   const updateStep = (index: number, field: keyof ProfileStep, value: number) => {
     setProfile((prev) => {
@@ -31,7 +93,13 @@ const ProfileEditorScreen: React.FC = () => {
   const addStep = () => {
     setProfile((prev) => ({
       ...prev,
-      steps: [...prev.steps, { time_s: prev.steps[prev.steps.length - 1]?.time_s ?? 0, pressure_bar: 0 }],
+      steps: [
+        ...prev.steps,
+        {
+          time_s: (prev.steps[prev.steps.length - 1]?.time_s ?? 0) + 1,
+          pressure_bar: 0,
+        },
+      ],
     }))
   }
 
@@ -64,98 +132,164 @@ const ProfileEditorScreen: React.FC = () => {
     }
   }
 
-  return (
-    <div className="flex min-h-screen flex-col p-4 safe-area-top safe-area-bottom">
-      <h1 className="mb-4 text-xl font-bold">
-        {isEditing ? 'Editar Perfil' : 'Novo Perfil'}
-      </h1>
+  if (loadingProfile) {
+    return (
+      <Screen title="Editar Perfil" showNav={false}>
+        <div className="py-16 text-center text-sm text-muted">Carregando...</div>
+      </Screen>
+    )
+  }
 
-      <div className="mb-4 space-y-3">
+  if (notFound) {
+    return (
+      <Screen title="Editar Perfil" showNav={false}>
+        <div className="rounded-2xl border border-line bg-cream px-6 py-12 text-center shadow-card">
+          <div className="text-sm font-medium text-ink">Perfil nao encontrado</div>
+          <p className="mt-1 text-sm text-muted">
+            Ele pode ter sido removido da maquina.
+          </p>
+          <button
+            onClick={() => navigate('/profiles')}
+            className="mt-4 rounded-xl bg-mocha px-4 py-2.5 text-sm font-semibold text-cream active:bg-mocha-dark"
+          >
+            Voltar aos perfis
+          </button>
+        </div>
+      </Screen>
+    )
+  }
+
+  const inputClass =
+    'w-full rounded-xl border border-line bg-cream px-3 py-2.5 text-sm text-ink outline-none placeholder:text-muted/70 focus:border-mocha'
+
+  return (
+    <Screen
+      title={isEditing ? 'Editar Perfil' : 'Novo Perfil'}
+      showNav={false}
+      action={
+        <button
+          onClick={() => navigate('/profiles')}
+          className="text-sm font-medium text-muted active:text-ink"
+        >
+          Cancelar
+        </button>
+      }
+    >
+      <div className="space-y-3">
         <div>
-          <label className="mb-1 block text-sm text-neutral-400">Nome</label>
+          <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted">
+            Nome
+          </label>
           <input
             type="text"
             value={profile.name}
             onChange={(e) => setProfile((p) => ({ ...p, name: e.target.value }))}
-            className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-neutral-500"
+            className={inputClass}
             placeholder="Ex: Espresso Padrao"
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm text-neutral-400">Descriçao</label>
+          <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted">
+            Descricao
+          </label>
           <input
             type="text"
             value={profile.description}
             onChange={(e) => setProfile((p) => ({ ...p, description: e.target.value }))}
-            className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-neutral-500"
+            className={inputClass}
             placeholder="Opcional"
           />
         </div>
       </div>
 
-      <div className="mb-2 text-sm font-medium text-neutral-300">Steps (tempo / pressao)</div>
-      <div className="mb-4 space-y-2">
-        {profile.steps.map((step, i) => (
-          <div key={i} className="flex items-center gap-2 rounded-lg bg-neutral-800 p-3">
-            <span className="w-6 text-xs text-neutral-500">{i + 1}</span>
-            <input
-              type="number"
-              min={0}
-              step={0.1}
-              value={step.time_s}
-              onChange={(e) => updateStep(i, 'time_s', parseFloat(e.target.value) || 0)}
-              className="w-20 rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm"
-              placeholder="s"
-            />
-            <span className="text-neutral-500">s</span>
-            <input
-              type="number"
-              min={0}
-              max={12}
-              step={0.1}
-              value={step.pressure_bar}
-              onChange={(e) => updateStep(i, 'pressure_bar', parseFloat(e.target.value) || 0)}
-              className="w-20 rounded-md border border-neutral-700 bg-neutral-900 px-2 py-1 text-sm"
-              placeholder="bar"
-            />
-            <span className="text-neutral-500">bar</span>
-            {profile.steps.length > 1 && (
-              <button
-                onClick={() => removeStep(i)}
-                className="ml-auto text-xs text-red-400 hover:text-red-300"
-              >
-                Remover
-              </button>
-            )}
-          </div>
-        ))}
-        <button
-          onClick={addStep}
-          className="w-full rounded-lg border border-dashed border-neutral-600 py-2 text-sm text-neutral-400 hover:border-neutral-400 hover:text-neutral-200"
-        >
-          + Adicionar step
-        </button>
+      {/* Previa da curva */}
+      <div className="mt-5 rounded-2xl border border-line bg-cream p-4 shadow-card">
+        <div className="mb-2 flex items-baseline justify-between">
+          <span className="text-xs font-medium uppercase tracking-wide text-muted">
+            Curva de pressao
+          </span>
+          <span className="text-xs text-muted">0-{MAX_PRESSURE_BAR} bar</span>
+        </div>
+        <CurvePreview steps={profile.steps} />
       </div>
 
-      {error && <div className="mb-4 text-sm text-red-400">{error}</div>}
+      {/* Steps */}
+      <div className="mt-5">
+        <div className="mb-2 flex items-baseline justify-between">
+          <span className="text-xs font-medium uppercase tracking-wide text-muted">
+            Steps
+          </span>
+          <span className="text-xs text-muted">tempo / pressao</span>
+        </div>
 
-      <div className="mt-auto flex gap-3">
-        <button
-          onClick={() => navigate('/profiles')}
-          className="flex-1 rounded-lg bg-neutral-800 py-3 text-sm font-medium hover:bg-neutral-700"
-        >
-          Cancelar
-        </button>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex-1 rounded-lg py-3 text-sm font-bold text-neutral-900 disabled:opacity-50"
-          style={{ backgroundColor: 'var(--color-accent)' }}
-        >
-          {saving ? 'Salvando...' : 'Salvar'}
-        </button>
+        <div className="space-y-2">
+          {profile.steps.map((step, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-2 rounded-xl border border-line bg-cream p-3 shadow-card"
+            >
+              <span className="w-5 shrink-0 text-xs font-semibold text-muted">{i + 1}</span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step={0.1}
+                  value={step.time_s}
+                  onChange={(e) => updateStep(i, 'time_s', parseFloat(e.target.value) || 0)}
+                  className="tabular-live w-16 rounded-lg border border-line bg-latte px-2 py-1.5 text-sm text-ink outline-none focus:border-mocha"
+                />
+                <span className="text-xs text-muted">s</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  max={MAX_PRESSURE_BAR}
+                  step={0.1}
+                  value={step.pressure_bar}
+                  onChange={(e) =>
+                    updateStep(i, 'pressure_bar', parseFloat(e.target.value) || 0)
+                  }
+                  className="tabular-live w-16 rounded-lg border border-line bg-latte px-2 py-1.5 text-sm text-ink outline-none focus:border-mocha"
+                />
+                <span className="text-xs text-muted">bar</span>
+              </div>
+              {profile.steps.length > 1 && (
+                <button
+                  onClick={() => removeStep(i)}
+                  aria-label={`Remover step ${i + 1}`}
+                  className="ml-auto rounded-lg px-2 py-1 text-xs font-semibold text-brick active:bg-brick/10"
+                >
+                  Remover
+                </button>
+              )}
+            </div>
+          ))}
+          <button
+            onClick={addStep}
+            className="w-full rounded-xl border border-dashed border-line-strong py-2.5 text-sm font-medium text-muted active:bg-foam"
+          >
+            + Adicionar step
+          </button>
+        </div>
       </div>
-    </div>
+
+      {error && (
+        <div className="mt-4 rounded-xl border border-brick/30 bg-brick/10 px-4 py-3 text-sm text-brick">
+          {error}
+        </div>
+      )}
+
+      <button
+        onClick={handleSave}
+        disabled={saving}
+        className="mt-5 w-full rounded-2xl bg-mocha py-4 text-sm font-bold uppercase tracking-wide text-cream shadow-raised active:bg-mocha-dark disabled:opacity-40"
+      >
+        {saving ? 'Salvando...' : 'Salvar perfil'}
+      </button>
+    </Screen>
   )
 }
 

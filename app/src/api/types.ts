@@ -1,5 +1,11 @@
 export type MachineState = 'idle' | 'heating' | 'extracting' | 'error'
 
+export interface PIDParams {
+  kp: number
+  ki: number
+  kd: number
+}
+
 export interface MachineStatus {
   temp: number
   press: number
@@ -10,12 +16,7 @@ export interface MachineStatus {
   profile: string | null
   uptime: number
   wifiMode: 'ap' | 'sta'
-}
-
-export interface PIDParams {
-  kp: number
-  ki: number
-  kd: number
+  pid: PIDParams
 }
 
 export interface ProfileStep {

@@ -12,7 +12,7 @@ const App: React.FC = () => {
   const { connected } = useMachine()
 
   return (
-    <div className="min-h-screen bg-neutral-900 text-neutral-100">
+    <div className="min-h-screen bg-latte text-ink">
       <Routes>
         <Route path="/setup" element={<SetupScreen />} />
         <Route

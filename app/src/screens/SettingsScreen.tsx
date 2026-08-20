@@ -1,136 +1,133 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useMachine } from '../context/MachineContext'
 import { useMachineApi } from '../hooks/useMachineApi'
 import { useSettings } from '../context/SettingsContext'
 import { PIDParams } from '../api/types'
 import { validatePID } from '../utils/validators'
+import Screen from '../components/Screen'
+
+type Feedback = { kind: 'ok' | 'error'; msg: string } | null
 
 const SettingsScreen: React.FC = () => {
-  const navigate = useNavigate()
   const { status } = useMachine()
   const { setTemp, setPID } = useMachineApi()
   const { tempUnit, pressureUnit, setTempUnit, setPressureUnit } = useSettings()
 
   const [tempValue, setTempValue] = useState(92)
   const [pid, setPid] = useState<PIDParams>({ kp: 0, ki: 0, kd: 0 })
-  const [error, setError] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<Feedback>(null)
 
   useEffect(() => {
     if (status) {
       setTempValue(status.tempSetpoint)
-      setPid({
-        kp: status.tempSetpoint, // NOTE: status nao tem PID ainda — sera adicionado
-        ki: 0,
-        kd: 0,
-      })
+      setPid(status.pid)
     }
   }, [status])
 
   const handleSaveTemp = async () => {
     try {
       await setTemp(tempValue)
-      setError(null)
+      setFeedback({ kind: 'ok', msg: 'Temperatura aplicada.' })
     } catch (e) {
-      setError((e as Error).message)
+      setFeedback({ kind: 'error', msg: (e as Error).message })
     }
   }
 
   const handleSavePID = async () => {
     const validation = validatePID(pid)
     if (validation) {
-      setError(validation)
+      setFeedback({ kind: 'error', msg: validation })
       return
     }
     try {
       await setPID(pid)
-      setError(null)
+      setFeedback({ kind: 'ok', msg: 'PID aplicado.' })
     } catch (e) {
-      setError((e as Error).message)
+      setFeedback({ kind: 'error', msg: (e as Error).message })
     }
   }
 
-  return (
-    <div className="flex min-h-screen flex-col p-4 safe-area-top safe-area-bottom">
-      <h1 className="mb-4 text-xl font-bold">Ajustes</h1>
+  const cardClass = 'rounded-2xl border border-line bg-cream p-4 shadow-card'
+  const sectionTitle = 'text-xs font-medium uppercase tracking-wide text-muted'
+  const applyBtn =
+    'mt-4 w-full rounded-xl bg-mocha py-2.5 text-sm font-semibold text-cream active:bg-mocha-dark'
+  const selectClass =
+    'w-full rounded-xl border border-line bg-latte px-3 py-2.5 text-sm text-ink outline-none focus:border-mocha'
 
+  return (
+    <Screen title="Ajustes" showConnection>
       {/* Setpoint temperatura */}
-      <div className="mb-6 rounded-xl bg-neutral-800 p-4">
-        <div className="mb-2 text-sm font-medium text-neutral-300">
-          Temperatura alvo
-        </div>
-        <div className="flex items-center gap-3">
-          <input
-            type="range"
-            min={80}
-            max={100}
-            step={0.1}
-            value={tempValue}
-            onChange={(e) => setTempValue(parseFloat(e.target.value))}
-            className="flex-1"
-          />
-          <span className="w-16 text-right font-mono text-lg">
-            {tempValue.toFixed(1)}°C
+      <div className={cardClass}>
+        <div className={sectionTitle}>Temperatura alvo</div>
+        <div className="mt-3 flex items-baseline justify-between">
+          <span className="tabular-live text-4xl font-semibold text-roast">
+            {tempValue.toFixed(1)}
+            <span className="ml-1 text-lg text-muted">°C</span>
           </span>
+          <span className="text-xs text-muted">80 - 100 °C</span>
         </div>
-        <button
-          onClick={handleSaveTemp}
-          className="mt-3 w-full rounded-lg py-2 text-sm font-semibold text-neutral-900"
-          style={{ backgroundColor: 'var(--color-accent)' }}
-        >
+        <input
+          type="range"
+          min={80}
+          max={100}
+          step={0.1}
+          value={tempValue}
+          onChange={(e) => setTempValue(parseFloat(e.target.value))}
+          className="mt-3 w-full accent-mocha"
+        />
+        <button onClick={handleSaveTemp} className={applyBtn}>
           Aplicar temperatura
         </button>
       </div>
 
       {/* PID */}
-      <div className="mb-6 rounded-xl bg-neutral-800 p-4">
-        <div className="mb-3 text-sm font-medium text-neutral-300">Parametros PID</div>
-        <div className="grid grid-cols-3 gap-3">
+      <div className={`${cardClass} mt-4`}>
+        <div className={sectionTitle}>Parametros PID</div>
+        <div className="mt-3 grid grid-cols-3 gap-3">
           {(['kp', 'ki', 'kd'] as const).map((k) => (
             <div key={k}>
-              <label className="mb-1 block text-xs uppercase text-neutral-500">{k}</label>
+              <label className="mb-1.5 block text-center text-xs font-semibold uppercase text-muted">
+                {k}
+              </label>
               <input
                 type="number"
+                inputMode="decimal"
                 step={0.01}
                 value={pid[k]}
                 onChange={(e) =>
                   setPid((p) => ({ ...p, [k]: parseFloat(e.target.value) || 0 }))
                 }
-                className="w-full rounded-md border border-neutral-700 bg-neutral-900 px-2 py-2 text-sm text-center"
+                className="tabular-live w-full rounded-xl border border-line bg-latte px-2 py-2.5 text-center text-sm text-ink outline-none focus:border-mocha"
               />
             </div>
           ))}
         </div>
-        <button
-          onClick={handleSavePID}
-          className="mt-3 w-full rounded-lg py-2 text-sm font-semibold text-neutral-900"
-          style={{ backgroundColor: 'var(--color-accent)' }}
-        >
+        <button onClick={handleSavePID} className={applyBtn}>
           Aplicar PID
         </button>
       </div>
 
       {/* Unidades */}
-      <div className="mb-6 rounded-xl bg-neutral-800 p-4">
-        <div className="mb-3 text-sm font-medium text-neutral-300">Unidades</div>
-        <div className="flex gap-4">
+      <div className={`${cardClass} mt-4`}>
+        <div className={sectionTitle}>Unidades</div>
+        <div className="mt-3 grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-xs text-neutral-500">Temperatura</label>
+            <label className="mb-1.5 block text-xs text-muted">Temperatura</label>
             <select
               value={tempUnit}
               onChange={(e) => setTempUnit(e.target.value as 'celsius' | 'fahrenheit')}
-              className="rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm"
+              className={selectClass}
             >
               <option value="celsius">Celsius (°C)</option>
               <option value="fahrenheit">Fahrenheit (°F)</option>
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs text-neutral-500">Pressao</label>
+            <label className="mb-1.5 block text-xs text-muted">Pressao</label>
             <select
               value={pressureUnit}
               onChange={(e) => setPressureUnit(e.target.value as 'bar' | 'psi')}
-              className="rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm"
+              className={selectClass}
             >
               <option value="bar">Bar</option>
               <option value="psi">PSI</option>
@@ -139,15 +136,18 @@ const SettingsScreen: React.FC = () => {
         </div>
       </div>
 
-      {error && <div className="mb-4 text-sm text-red-400">{error}</div>}
-
-      <button
-        onClick={() => navigate('/')}
-        className="mt-auto w-full rounded-lg bg-neutral-800 py-3 text-sm font-medium hover:bg-neutral-700"
-      >
-        Voltar
-      </button>
-    </div>
+      {feedback && (
+        <div
+          className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
+            feedback.kind === 'ok'
+              ? 'border-herb/30 bg-herb/10 text-herb'
+              : 'border-brick/30 bg-brick/10 text-brick'
+          }`}
+        >
+          {feedback.msg}
+        </div>
+      )}
+    </Screen>
   )
 }
 

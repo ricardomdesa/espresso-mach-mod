@@ -9,10 +9,7 @@ interface TimerDisplayProps {
 const TimerDisplay: React.FC<TimerDisplayProps> = ({ seconds, large = false }) => {
   return (
     <div
-      className={`font-mono tracking-wider ${
-        large ? 'text-5xl font-bold' : 'text-2xl'
-      }`}
-      style={{ color: 'var(--color-accent)' }}
+      className={`tabular-live font-semibold text-ink ${large ? 'text-6xl' : 'text-2xl'}`}
     >
       {formatTimer(seconds)}
     </div>

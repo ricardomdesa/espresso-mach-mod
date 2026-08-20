@@ -1,10 +1,10 @@
 # SDD-007 — Épico 7: App Android (React + Capacitor)
 
-- **Status:** Em progresso — scaffold completo, build TypeScript limpo, APK debug gerado e instalado em device físico via ADB. Pendente: testes de integração com ESP32 (depende de SDD-005 e SDD-006 implementados).
+- **Status:** Em progresso — scaffold completo, build TypeScript limpo, APK debug gerado e instalado em device físico via ADB. Auditoria pós-scaffold (2026-08-20) encontrou bugs funcionais no que estava marcado ✅; 6 corrigidos, incluindo o Tailwind que nunca foi instalado (§12). Paleta "Latte" e revisão de UI aplicadas (D9). Pendente: testes de integração com ESP32 (depende de SDD-005 e SDD-006 implementados), gaps restantes listados em §12.
 - **Épico:** 7 (Fase 2)
 - **Pré-requisitos:** Épico 5 (Wi-Fi + provisionamento — SDD-005); Épico 6 (API REST/WebSocket — SDD-006)
 - **Plataforma alvo:** Android 10+ (API level 29+)
-- **Stack:** React 18+, TypeScript, Capacitor 6+, Tailwind CSS (ou equivalente)
+- **Stack:** React 18+, TypeScript, Capacitor 6+, Tailwind CSS 3.4
 
 ## 1. Problema
 
@@ -113,6 +113,15 @@ O MVP (épicos 1–4) e a fundação de rede (épicos 5–6) entregam o firmware
 - **Escolha:** `npx cap sync android` + build via Android Studio (ou `gradlew assembleRelease`).
 - **Por quê:** gera APK/AAB padrão Android; debug via Chrome DevTools (inspect WebView); assinatura manual para instalação local (fora da Play Store nesta fase).
 
+### D9 — Estilo: Tailwind CSS v3 + paleta "Latte" (2026-08-20)
+
+- **Escolha:** Tailwind CSS **3.4**, com a paleta definida como tokens semânticos em `tailwind.config.js`. Tema claro único (sem dark mode).
+- **Por quê v3 e não v4:** o scaffold já escrevia todas as telas em classes Tailwind, então instalar a lib preserva o código como está. A v4 depende de `color-mix()` e `@property` (Chrome 111+); o alvo declarado é Android 10+ (API 29), onde o WebView pode ser bem mais antigo. A v3 compila para CSS plano e não tem esse piso.
+- **Paleta:** bege quente no fundo (`latte #F2EADF`), creme nos cards (`cream #FFFCF7`), marrom café na primária (`mocha #6F4E37`), texto marrom quase preto (`ink #2B211A`). Temperatura (`roast #C0562B`) e pressão (`herb #4A7C59`) têm cor fixa e usam a mesma em card, gráfico e histórico — a leitura não muda de significado entre telas.
+- **Tokens vs. SVG:** classes Tailwind não alcançam o interior do recharts. As cores de gráfico ficam em `src/theme.ts` e devem espelhar `tailwind.config.js` — os dois arquivos se referenciam por comentário.
+- **Tema único:** sem dark mode. O app é operado numa cozinha, geralmente clara, e um segundo tema dobraria a superfície de teste sem demanda real. `<meta name="color-scheme" content="light">` evita que o WebView tente inverter.
+- **Risco:** divergência entre `tailwind.config.js` e `src/theme.ts` se alguém mudar só um lado. Aceito — são 7 valores, comentados nos dois arquivos.
+
 ## 6. Estrutura de Código
 
 ```
@@ -122,17 +131,19 @@ app/
   package.json
   tsconfig.json
   vite.config.ts             # bundler (Vite — rápido, HMR)
+  tailwind.config.js         # paleta "Latte" — fonte da verdade das cores (D9)
+  postcss.config.js          # pipeline tailwind + autoprefixer
   index.html
   src/
     main.tsx                 # entrypoint React
     App.tsx                  # roteador + providers
+    theme.ts                 # cores para SVG/canvas (recharts); espelha tailwind.config.js
+    index.css                # diretivas @tailwind + base + utilitários (safe-area, tabular-live)
     api/
-      client.ts              # fetch wrapper: baseURL, timeout, error handling
+      client.ts              # fetch wrapper: baseURL, timeout, error handling + funções por endpoint (endpoints.ts foi fundido aqui, não é arquivo separado)
       types.ts               # tipos TypeScript do contrato REST (espelho do SDD-006)
-      endpoints.ts           # funções para cada endpoint REST
     ws/
-      WebSocketClient.ts     # wrapper WebSocket: conectar, reconectar, parse frames
-      useWebSocket.ts        # hook React que expõe último frame e estado da conexão
+      useWebSocket.ts        # hook React: conectar, reconectar, parse frames/eventos (WebSocketClient.ts não existe como arquivo separado, ficou tudo no hook)
     context/
       MachineContext.tsx     # estado global: conectado?, dados atuais, perfil ativo
       SettingsContext.tsx    # tema, unidades (°C/bar vs °F/psi)
@@ -144,10 +155,14 @@ app/
       HistoryScreen.tsx      # histórico local de extrações
       SetupScreen.tsx        # descoberta + provisionamento Wi-Fi
     components/
-      LiveChart.tsx          # gráfico temp/pressão vs. tempo
+      Screen.tsx             # shell das telas: header sticky + main + bottom nav
+      BottomNav.tsx          # navegação fixa (Extrair / Perfis / Histórico / Ajustes)
+      LiveChart.tsx          # gráfico temp/pressão vs. tempo (cores de theme.ts)
       ConnectionBadge.tsx    # indicador de conexão (verde/vermelho)
-      PressureCurveEditor.tsx # editor visual de curva pressão × tempo
-      TimerDisplay.tsx       # cronômetro grande (MM:SS.ms)
+      TimerDisplay.tsx       # cronômetro grande (MM:SS.ms), tabular-nums
+      # PressureCurveEditor.tsx NÃO existe como componente separado. O editor
+      # tem uma PRÉVIA da curva (SVG read-only, dentro de ProfileEditorScreen),
+      # mas não a edição visual por arraste prevista em F8. Ver §12.
     hooks/
       useMachineApi.ts       # abstração CRUD perfis + setpoints
       useLocalHistory.ts     # grava/lê histórico no Preferences
@@ -173,6 +188,7 @@ export interface MachineStatus {
   profile: string | null;
   uptime: number;
   wifiMode: 'ap' | 'sta';
+  pid: PIDParams;          // obrigatório — SDD-006 F1 estende /api/status com PID
 }
 
 export interface PIDParams {
@@ -236,10 +252,11 @@ app abre
 
 | Tipo | Escopo | Critério | Status |
 |------|--------|----------|--------|
-| Build | `npm run build` + `npx cap sync android` | sem erros de TypeScript; bundle gera assets | **✅ OK** (build limpo, 581 KB JS gzip) |
-| Build Android | `gradlew assembleDebug` | APK gera e instala | **✅ OK** (APK instalado via ADB em device real) |
+| Build | `npm run build` + `npx cap sync android` | sem erros de TypeScript; bundle gera assets | **✅ OK** (build limpo; JS 593 kB / 173 kB gzip, CSS 13,67 kB / 3,5 kB gzip) |
+| Build Android | `gradlew assembleDebug` | APK gera e instala | **✅ OK** (APK instalado via ADB em device real — **antes** da correção do Tailwind e da paleta; refazer) |
+| **Visual** | **telas rodando (dev server ou APK)** | **cada tela renderiza com estilo, paleta correta, bottom nav navega** | **⏳ Pendente — ver §12. Este teste faltando foi o que deixou o #9 passar** |
 | Unidade | `formatters.ts`, `validators.ts` | Jest/Vitest: passam | Pendente |
-| Unidade | `WebSocketClient.ts` | mock WS: reconexão, parse de frames/eventos | Pendente |
+| Unidade | `useWebSocket.ts` | mock WS: reconexão, parse de frames/eventos | Pendente |
 | Integração | `client.ts` + mock HTTP | endpoints REST retornam tipos corretos | Pendente |
 | Hardware | descoberta `philco.local` | resolve na rede local do usuário | Pendente |
 | Hardware | dashboard ao vivo | frames WebSocket a 100 ms chegam e renderizam | Pendente |
@@ -274,15 +291,24 @@ app abre
 10. ~~**Perfis:** `ProfilesScreen` + `ProfileEditorScreen` com editor de steps (numérico).~~ ✅ Concluído
 11. ~~**Histórico:** `HistoryScreen` + `useLocalHistory` (Capacitor Preferences).~~ ✅ Concluído
 12. ~~**Navegação:** React Router com transições e proteção de rotas.~~ ✅ Concluído
-13. ~~**Build Android:** `npx cap sync android` + build no Android Studio; testar em device físico.~~ ✅ Concluído (APK debug instalado via ADB)
-14. **Testes de integração:** validar fluxo ponta a ponta com ESP32 rodando SDD-006. ⏳ Pendente
-15. **Otimização:** bundle size, performance do gráfico, tratamento de erros de rede. ⏳ Pendente
-16. **Documentar:** resultados, versões testadas, limitações conhecidas. ⏳ Pendente
+13. ~~**Build Android:** `npx cap sync android` + build no Android Studio; testar em device físico.~~ ✅ Concluído (APK debug instalado via ADB — antes das correções de §12; refazer)
+14. ~~**Estilo:** instalar e configurar Tailwind 3.4; paleta "Latte" em tokens; revisão de UI (bottom nav, hierarquia do dashboard, estados vazios).~~ ✅ Concluído (D9, §12)
+15. **Verificação visual:** rodar as telas (dev server ou APK) e conferir render, paleta e navegação. ⏳ Pendente — ver §12
+16. **Testes de integração:** validar fluxo ponta a ponta com ESP32 rodando SDD-006. ⏳ Pendente
+17. **Otimização:** bundle size, performance do gráfico, tratamento de erros de rede. ⏳ Pendente
+18. **Documentar:** resultados, versões testadas, limitações conhecidas. ⏳ Pendente
+
+> **Nota sobre os ✅ acima.** Os itens 1–13 foram marcados concluídos pelo scaffold original,
+> mas a auditoria de §12 mostrou que vários não entregavam o que prometiam (telas sem estilo,
+> PID errado, edição de perfil destrutiva, histórico que nunca gravava). Continuam marcados
+> por já terem sido corrigidos — não porque a marcação original estivesse certa.
 
 ## 10. Critérios de Aceite (resumo)
 
 - [x] `npm run build` limpo; TypeScript sem erros
 - [x] `npx cap sync android` + build APK funciona
+- [x] Telas estilizadas com a paleta "Latte" (D9) — CSS gerado, não só classes escritas
+- [ ] Telas conferidas rodando em device (render, paleta, bottom nav) — §12
 - [ ] App resolve `philco.local` ou fallback de IP na rede local
 - [ ] Dashboard mostra temp/pressão/timer atualizando via WebSocket
 - [ ] Start/stop de extração via app funciona (mesmo que botão físico)
@@ -292,7 +318,7 @@ app abre
 - [ ] Histórico de extrações salva e lista corretamente
 - [ ] Reconexão automática funciona após queda de Wi-Fi
 - [ ] Provisionamento Wi-Fi guiado funciona (AP → STA → reconexão do app)
-- [x] APK ≤ 15 MB (bundle ~169 KB gzip; APK debug ~7 MB)
+- [x] APK ≤ 15 MB (bundle ~173 KB gzip + CSS 3,5 KB gzip; APK debug ~7 MB)
 
 ## 11. Deferred (fora deste épico)
 
@@ -303,3 +329,42 @@ app abre
 - Notificações push
 - Tema escuro/claro (pode entrar como melhoria rápida)
 - Exportação de dados (CSV de histórico)
+
+## 12. Auditoria pós-scaffold (2026-08-20)
+
+Scaffold foi gerado por um modelo anterior e marcado ✅ em quase todo o plano de implementação (§9), mas várias entregas não funcionavam de fato. Auditoria encontrou 8 problemas; 6 corrigidos, 2 permanecem como débito técnico.
+
+O achado mais grave (#9) só apareceu quando o trabalho passou de "ler o código" para "olhar a tela": o build passava limpo, o `tsc` não reclamava, e mesmo assim nenhuma tela tinha estilo. **Build verde não é evidência de tela funcionando** — vale rodar o app antes de marcar item de UI como concluído.
+
+### Corrigidos
+
+| # | Problema | Onde | Causa raiz |
+|---|----------|------|------------|
+| 9 | **Tailwind nunca foi instalado.** As ~1.600 linhas de `className` das 6 telas não pintavam nada; o app renderizava HTML cru empilhado. Só sobreviviam os `style={{}}` inline e o `body`. | `package.json`, `index.css` | Sem `tailwindcss` nas dependências, sem `tailwind.config.js`, sem `postcss.config.js`, sem diretivas `@tailwind` no CSS. Sintoma visível no build: CSS de saída com 0,62 kB. Corrigido: Tailwind 3.4 instalado e configurado (D9) — CSS passou para 13,67 kB |
+| 1 | Botão "Aplicar PID" mandava `kp=tempSetpoint, ki=0, kd=0` pro ESP32 real (comentário no código já confessava a gambiarra) | `SettingsScreen.tsx` | `MachineStatus` não tinha campo `pid`, divergindo do contrato SDD-006 F1 — corrigido no tipo (acima) e no código |
+| 2 | "Editar perfil" sempre abria formulário vazio; salvar sobrescrevia o perfil real com nome vazio + 1 step 0/0 | `ProfileEditorScreen.tsx` | Nunca buscava o perfil existente por id — corrigido: carrega do context, com refresh e tela de "não encontrado" |
+| 3 | IP manual vazio/malformado no Setup derrubava o app pra tela branca sem recuperação (sem `ErrorBoundary` em lugar nenhum) | `MachineContext.tsx` + `SetupScreen.tsx` | `new URL()` sem try/catch no corpo do render — corrigido: validação antes de conectar + guard no context |
+| 5 | Extrações nunca eram gravadas no histórico local apesar de F11 estar marcado ✅ | `DashboardScreen.tsx` / `useLocalHistory` | `add()` do hook nunca era chamado em lugar nenhum do app — corrigido: Dashboard grava registro (duração, médias, perfil) ao fim da extração |
+| 7 | `WsEvent` do tipo `error` (máquina reporta erro) chegava no context (`lastEvent`) e nenhuma tela avisava o usuário | `DashboardScreen.tsx` | Ninguém lia `lastEvent` — corrigido: faixa de alerta no topo do Dashboard com a mensagem da máquina |
+
+### Revisão de UI aplicada junto (D9)
+
+Além da paleta, na mesma rodada:
+
+- **Navegação unificada** — `BottomNav` fixa substitui o botão "Voltar" repetido em cada tela e os três botões soltos no rodapé do Dashboard. `Screen` padroniza header sticky, largura máxima e safe areas.
+- **`tabular-nums` nas leituras ao vivo** — a 100 ms por frame, dígito de largura variável faz o número tremer. Utilitário `.tabular-live` em `index.css`.
+- **`alert()` removido** — erro de comando virava diálogo do sistema (bloqueia a WebView); agora é faixa dentro da tela, com o mesmo tratamento em Perfis e Ajustes.
+- **Cores do gráfico saíram do hardcode** — `LiveChart` lia `#f59e0b`/`#22c55e`/`#404040` cravados, que brigariam com o fundo bege. Agora vêm de `src/theme.ts`.
+- **Prévia da curva de pressão** no editor de perfil — SVG read-only que redesenha conforme os steps mudam (cobre parte de F8, ver #8 abaixo).
+- **Estados vazios com ação** — "Nenhum perfil ainda" e "Nenhuma extração ainda" trazem o botão que resolve, em vez de uma linha de texto solta.
+
+### Débito técnico restante
+
+| # | Problema | Onde | Impacto |
+|---|----------|------|---------|
+| 6 | `discoverMachine()` faz subnet scan de 3 subnets × 254 hosts (762 candidatos) em lotes de 10 sequenciais, ~15s+ no pior caso, martelando a rede local. Sem cache do IP entre boots | `discovery.ts` | Perf — não bloqueia uso, mas descoberta lenta quando mDNS e AP fallback falham |
+| 8 | F8 pede **editor visual** de curva pressão×tempo; o que existe é uma **prévia** SVG read-only + inputs numéricos. Falta a edição por arraste dos pontos | `ProfileEditorScreen.tsx` | F8 parcialmente atendido — funcional e agora legível, mas sem a manipulação direta prevista no design |
+
+### Verificação visual — pendente
+
+As telas não foram conferidas rodando de verdade: o Chrome disponível na sessão de revisão não alcançava o servidor de desenvolvimento local (limitação de ambiente, não do código). O que foi verificado: `tsc` sem erros, `npm run build` limpo, e o CSS de saída subindo de 0,62 kB para 13,67 kB — o que confirma que o Tailwind passou a gerar estilo, mas não substitui olhar a tela. **Conferir no APK, em device, antes de marcar as telas como concluídas.**

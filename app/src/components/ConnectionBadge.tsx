@@ -5,16 +5,15 @@ const ConnectionBadge: React.FC = () => {
   const { connected } = useMachine()
 
   return (
-    <div className="flex items-center gap-2">
+    <div
+      className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+        connected ? 'bg-herb/10 text-herb' : 'bg-brick/10 text-brick'
+      }`}
+    >
       <span
-        className="inline-block h-3 w-3 rounded-full"
-        style={{
-          backgroundColor: connected ? 'var(--color-success)' : 'var(--color-danger)',
-        }}
+        className={`inline-block h-2 w-2 rounded-full ${connected ? 'bg-herb' : 'bg-brick'}`}
       />
-      <span className="text-sm text-neutral-400">
-        {connected ? 'Conectado' : 'Desconectado'}
-      </span>
+      {connected ? 'Conectado' : 'Offline'}
     </div>
   )
 }
