@@ -8,8 +8,12 @@ pnpm-lock.yaml
 dist/
 build/
 
-# Android (gerado pelo Capacitor)
-android/
+# Android: o projeto nativo NAO e descartavel. Ele carrega codigo escrito a
+# mao (plugin NetworkBinder, permissoes de rede, config de cleartext) que um
+# `cap add android` nao regenera. Os artefatos de build ja sao ignorados pelos
+# .gitignore que o proprio Capacitor colocou em android/ e android/app/.
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
 
 # IDE
 .vscode/

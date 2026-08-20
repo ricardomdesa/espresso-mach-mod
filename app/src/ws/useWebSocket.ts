@@ -7,6 +7,7 @@ export interface UseWebSocketReturn {
   state: ConnectionState
   lastFrame: WsFrame | null
   lastEvent: WsEvent | null
+  lastError: string | null
   send: (data: string) => void
 }
 
@@ -17,89 +18,104 @@ export function useWebSocket(url: string | null): UseWebSocketReturn {
   const [state, setState] = useState<ConnectionState>('closed')
   const [lastFrame, setLastFrame] = useState<WsFrame | null>(null)
   const [lastEvent, setLastEvent] = useState<WsEvent | null>(null)
+  const [lastError, setLastError] = useState<string | null>(null)
 
   const wsRef = useRef<WebSocket | null>(null)
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const attemptsRef = useRef(0)
-  const isMountedRef = useRef(true)
-
-  const clearReconnectTimer = useCallback(() => {
-    if (reconnectTimerRef.current) {
-      clearTimeout(reconnectTimerRef.current)
-      reconnectTimerRef.current = null
-    }
-  }, [])
-
-  const connect = useCallback(() => {
-    if (!url || !isMountedRef.current) return
-    if (wsRef.current?.readyState === WebSocket.OPEN) return
-
-    setState('connecting')
-    const ws = new WebSocket(url)
-    wsRef.current = ws
-
-    ws.onopen = () => {
-      if (!isMountedRef.current) {
-        ws.close()
-        return
-      }
-      attemptsRef.current = 0
-      setState('open')
-    }
-
-    ws.onmessage = (ev) => {
-      if (!isMountedRef.current) return
-      try {
-        const data = JSON.parse(ev.data as string)
-        if ('event' in data) {
-          setLastEvent(data as WsEvent)
-        } else {
-          setLastFrame(data as WsFrame)
-        }
-      } catch {
-        // ignora frames malformados
-      }
-    }
-
-    ws.onerror = () => {
-      if (!isMountedRef.current) return
-      setState('error')
-    }
-
-    ws.onclose = () => {
-      if (!isMountedRef.current) return
-      wsRef.current = null
-      setState('closed')
-
-      if (attemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
-        attemptsRef.current += 1
-        reconnectTimerRef.current = setTimeout(() => {
-          connect()
-        }, RECONNECT_INTERVAL_MS)
-      }
-    }
-  }, [url, clearReconnectTimer])
+  const sendRef = useRef<(data: string) => void>(() => {})
 
   useEffect(() => {
-    isMountedRef.current = true
-    if (url) {
-      connect()
+    if (!url) {
+      setState('closed')
+      return
     }
+
+    // Cada montagem/URL tem sua própria geração. Callbacks de um socket antigo
+    // (que ainda dispara `onclose` depois do cleanup) não podem mexer no estado
+    // nem reagendar reconexão para a URL anterior.
+    let alive = true
+    let attempts = 0
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+
+    setLastError(null)
+
+    const open = () => {
+      if (!alive) return
+      setState('connecting')
+
+      let ws: WebSocket
+      try {
+        // Pode lançar de forma síncrona: URL malformada, ou `ws://` a partir de
+        // uma origem segura (bloqueio de conteúdo misto da WebView).
+        ws = new WebSocket(url)
+      } catch (err) {
+        setState('error')
+        setLastError(err instanceof Error ? err.message : String(err))
+        return
+      }
+      wsRef.current = ws
+
+      ws.onopen = () => {
+        if (!alive) {
+          ws.close()
+          return
+        }
+        attempts = 0
+        setLastError(null)
+        setState('open')
+      }
+
+      ws.onmessage = (ev) => {
+        if (!alive) return
+        try {
+          const data = JSON.parse(ev.data as string)
+          if ('event' in data) {
+            setLastEvent(data as WsEvent)
+          } else {
+            setLastFrame(data as WsFrame)
+          }
+        } catch {
+          // ignora frames malformados
+        }
+      }
+
+      ws.onerror = () => {
+        if (!alive) return
+        setState('error')
+      }
+
+      ws.onclose = () => {
+        if (!alive) return
+        wsRef.current = null
+        setState('closed')
+
+        if (attempts < MAX_RECONNECT_ATTEMPTS) {
+          attempts += 1
+          reconnectTimer = setTimeout(open, RECONNECT_INTERVAL_MS)
+        } else {
+          setLastError('Nao foi possivel conectar apos varias tentativas.')
+        }
+      }
+    }
+
+    sendRef.current = (data: string) => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(data)
+      }
+    }
+
+    open()
+
     return () => {
-      isMountedRef.current = false
-      clearReconnectTimer()
+      alive = false
+      if (reconnectTimer) clearTimeout(reconnectTimer)
       if (wsRef.current) {
         wsRef.current.close()
         wsRef.current = null
       }
     }
-  }, [url, connect, clearReconnectTimer])
+  }, [url])
 
-  const send = useCallback((data: string) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(data)
-    }
-  }, [])
+  const send = useCallback((data: string) => sendRef.current(data), [])
 
-  return { state, lastFrame, lastEvent, send }
+  return { state, lastFrame, lastEvent, lastError, send }
 }

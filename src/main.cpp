@@ -3,9 +3,13 @@
 #include <Adafruit_SSD1306.h>
 
 #include "pinos.h"
+#include "rede.h"
+#include "config/NvsConfig.h"
 #include "model/DisplayModel.h"
 #include "sensors/SensorFake.h"
 #include "input/Button.h"
+#include "net/ApiServer.h"
+#include "net/WifiProvisioner.h"
 #include "ui/ScreenManager.h"
 #include "ui/Screens.h"
 
@@ -17,6 +21,10 @@ Button button(PIN_BTN);
 SensorFake tempSensor(93.0f, 2.0f, 4000.0f);
 SensorFake pressureSensor(9.0f, 0.5f, 3000.0f);
 DisplayModel model(tempSensor, pressureSensor);
+
+NvsConfig nvs;
+WifiProvisioner wifi(nvs);
+ApiServer api(model, nvs, wifi);
 
 const Screen screens[] = {
     {drawScreenReadings},
@@ -54,6 +62,16 @@ void setup() {
 
     button.begin();
 
+    // Config persistida antes da rede: o JSON de status já sai com os valores
+    // reais e o PID (épicos 2-4) encontra os setpoints prontos.
+    nvs.begin();
+    nvs.loadControl(model);
+
+    // Wi-Fi é opcional (N4): sem credencial sobe o AP de configuração e o
+    // firmware segue funcionando offline.
+    wifi.begin();
+    api.begin();
+
     Serial.print(F("Heap livre: "));
     Serial.println(ESP.getFreeHeap());
 }
@@ -65,6 +83,8 @@ void loop() {
     if (button.clicked()) {
         if (screenManager.index() == kTimerScreenIndex) {
             model.timer().toggle();
+            api.broadcastEvent(model.timer().isRunning() ? "extraction_started"
+                                                         : "extraction_stopped");
         } else {
             screenManager.next();
         }
@@ -78,4 +98,10 @@ void loop() {
     }
 
     screenManager.draw(display, model);
+
+    // Rede: ambos são não-bloqueantes. O servidor HTTP/WS é assíncrono (roda
+    // na task do AsyncTCP); aqui só publicamos o frame de streaming e
+    // monitoramos a conexão STA.
+    wifi.loop();
+    api.loop();
 }

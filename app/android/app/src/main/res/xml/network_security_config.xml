@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A máquina (ESP32) só fala HTTP/WS em texto claro na rede local.
+  Liberamos cleartext de forma ampla porque o IP/hostname dela é
+  descoberto em runtime (DHCP + mDNS), não é conhecido em build time.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

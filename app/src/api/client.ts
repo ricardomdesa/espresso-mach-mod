@@ -1,4 +1,4 @@
-import { MachineStatus, PIDParams, ExtractionProfile } from './types'
+import { MachineStatus, PIDParams, ExtractionProfile, WiFiScanResult } from './types'
 
 const API_TIMEOUT = 5000
 
@@ -14,6 +14,7 @@ async function request<T>(
   method: string,
   path: string,
   body?: unknown,
+  timeout = API_TIMEOUT,
 ): Promise<T> {
   const url = `${baseUrl}${path}`
   const options: RequestInit = {
@@ -22,7 +23,7 @@ async function request<T>(
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
-    signal: AbortSignal.timeout(API_TIMEOUT),
+    signal: AbortSignal.timeout(timeout),
   }
   if (body !== undefined) {
     options.body = JSON.stringify(body)
@@ -33,7 +34,10 @@ async function request<T>(
     const text = await res.text().catch(() => 'Unknown error')
     throw new ApiError(res.status, text)
   }
-  return res.json() as Promise<T>
+  // 204 (DELETE) e respostas vazias não têm JSON para parsear.
+  const text = await res.text()
+  if (!text) return undefined as T
+  return JSON.parse(text) as T
 }
 
 export function createApiClient(baseUrl: string) {
@@ -67,8 +71,12 @@ export function createApiClient(baseUrl: string) {
     setActiveProfile: (id: string) =>
       request<MachineStatus>(baseUrl, 'PUT', '/api/profiles/active', { id }),
 
+    // Responde na hora com o cache da máquina e agenda a próxima varredura;
+    // enquanto `scanning` for true vale pedir de novo.
+    scanWiFi: () => request<WiFiScanResult>(baseUrl, 'GET', '/api/wifi/scan'),
+
     provisionWiFi: (ssid: string, password: string) =>
-      request<void>(baseUrl, 'POST', '/api/wifi/provision', { ssid, password }),
+      request<{ ok: boolean }>(baseUrl, 'POST', '/api/wifi/provision', { ssid, password }),
   }
 }
 

@@ -1,7 +1,11 @@
 import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react'
+import { Preferences } from '@capacitor/preferences'
 import { MachineStatus, WsFrame, WsEvent, ExtractionProfile } from '../api/types'
 import { createApiClient, ApiClient } from '../api/client'
-import { useWebSocket } from '../ws/useWebSocket'
+import { useWebSocket, ConnectionState } from '../ws/useWebSocket'
+import { bindToWifi } from '../native/networkBinder'
+
+const BASE_URL_KEY = 'philco.baseUrl'
 
 interface MachineState {
   connected: boolean
@@ -41,7 +45,9 @@ function machineReducer(state: MachineState, action: MachineAction): MachineStat
 
 interface MachineContextValue extends MachineState {
   api: ApiClient | null
-  connect: (baseUrl: string) => void
+  /** Estado do streaming ao vivo. Independente de `connected` (que é REST). */
+  wsState: ConnectionState
+  connect: (baseUrl: string) => Promise<MachineStatus>
   disconnect: () => void
   refreshStatus: () => Promise<void>
   refreshProfiles: () => Promise<void>
@@ -61,14 +67,16 @@ const initialState: MachineState = {
 export const MachineProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(machineReducer, initialState)
 
+  // O WebSocket só sobe depois que o REST confirmou a máquina. Assim uma
+  // máquina que ainda não implementa /ws não impede o app de funcionar.
   const wsUrl = useMemo(() => {
-    if (!state.baseUrl) return null
+    if (!state.baseUrl || !state.connected) return null
     try {
       return `ws://${new URL(state.baseUrl).host}/ws`
     } catch {
       return null
     }
-  }, [state.baseUrl])
+  }, [state.baseUrl, state.connected])
   const { state: wsState, lastFrame, lastEvent } = useWebSocket(wsUrl)
 
   const api = useMemo(() => {
@@ -88,16 +96,6 @@ export const MachineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [api])
 
   React.useEffect(() => {
-    const isOpen = wsState === 'open'
-    if (isOpen !== state.connected) {
-      dispatch({ type: 'SET_CONNECTED', payload: isOpen })
-    }
-    if (isOpen) {
-      refreshStatus().catch(() => {})
-    }
-  }, [wsState, state.connected, refreshStatus])
-
-  React.useEffect(() => {
     if (lastFrame) {
       dispatch({ type: 'SET_FRAME', payload: lastFrame })
     }
@@ -109,25 +107,50 @@ export const MachineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [lastEvent])
 
-  const connect = useCallback((baseUrl: string) => {
-    dispatch({ type: 'SET_BASE_URL', payload: baseUrl })
+  // Conecta = provar que a máquina responde ao REST. Só então marcamos
+  // `connected` e liberamos as rotas; erro sobe para quem chamou mostrar.
+  const connect = useCallback(async (baseUrl: string) => {
+    const normalized = baseUrl.replace(/\/+$/, '')
+    const status = await createApiClient(normalized).getStatus()
+    dispatch({ type: 'SET_BASE_URL', payload: normalized })
+    dispatch({ type: 'SET_STATUS', payload: status })
+    dispatch({ type: 'SET_CONNECTED', payload: true })
+    Preferences.set({ key: BASE_URL_KEY, value: normalized }).catch(() => {})
+    return status
   }, [])
 
   const disconnect = useCallback(() => {
     dispatch({ type: 'SET_BASE_URL', payload: null })
     dispatch({ type: 'SET_CONNECTED', payload: false })
+    Preferences.remove({ key: BASE_URL_KEY }).catch(() => {})
   }, [])
+
+  // Prende o app à Wi-Fi antes de qualquer requisição e reconecta sozinho no
+  // último endereço conhecido.
+  React.useEffect(() => {
+    let cancelled = false
+    bindToWifi()
+      .then(() => Preferences.get({ key: BASE_URL_KEY }))
+      .then(({ value }) => {
+        if (!cancelled && value) connect(value).catch(() => {})
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [connect])
 
   const value = useMemo(
     () => ({
       ...state,
       api,
+      wsState,
       connect,
       disconnect,
       refreshStatus,
       refreshProfiles,
     }),
-    [state, api, connect, disconnect, refreshStatus, refreshProfiles],
+    [state, api, wsState, connect, disconnect, refreshStatus, refreshProfiles],
   )
 
   return <MachineContext.Provider value={value}>{children}</MachineContext.Provider>

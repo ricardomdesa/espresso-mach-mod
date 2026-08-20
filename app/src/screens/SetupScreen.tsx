@@ -1,22 +1,58 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useMachine } from '../context/MachineContext'
-import { discoverMachine } from '../utils/discovery'
+import { discoverMachine, PROVISIONING_AP_URL } from '../utils/discovery'
+import { bindToWifi, diagnoseNetwork } from '../native/networkBinder'
 
 const SetupScreen: React.FC = () => {
-  const { connect, connected, baseUrl } = useMachine()
+  const { connect, connected, status, baseUrl } = useMachine()
+  const navigate = useNavigate()
   const [searching, setSearching] = useState(false)
+  const [connecting, setConnecting] = useState(false)
   const [manualIp, setManualIp] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const autoRan = useRef(false)
+
+  // Máquina em modo AP só serve para receber a credencial de Wi-Fi.
+  useEffect(() => {
+    if (connected && status?.wifiMode === 'ap') {
+      navigate('/provision', { replace: true })
+    }
+  }, [connected, status, navigate])
+
+  const tryConnect = async (url: string) => {
+    setConnecting(true)
+    setError(null)
+    try {
+      // O usuário pode ter acabado de trocar de rede; re-prende o app à Wi-Fi
+      // antes de falar com a máquina.
+      await bindToWifi()
+      await connect(url)
+    } catch (err) {
+      // Quase sempre a culpa é da rede do aparelho (VPN, dados móveis), não do
+      // endereço — vale mais dizer isso do que repetir "timeout".
+      const hint = await diagnoseNetwork()
+      setError(
+        hint ??
+          `Nao consegui falar com a maquina em ${url}. ` +
+            (err instanceof Error ? err.message : String(err)),
+      )
+    } finally {
+      setConnecting(false)
+    }
+  }
 
   const handleAutoDiscover = async () => {
     setSearching(true)
     setError(null)
+    await bindToWifi()
     const url = await discoverMachine()
     setSearching(false)
     if (url) {
-      connect(url)
+      await tryConnect(url)
     } else {
-      setError('Maquina nao encontrada na rede. Tente inserir o IP manualmente.')
+      const hint = await diagnoseNetwork()
+      setError(hint ?? 'Maquina nao encontrada na rede. Tente inserir o IP manualmente.')
     }
   }
 
@@ -34,13 +70,17 @@ const SetupScreen: React.FC = () => {
       setError('Endereco invalido.')
       return
     }
-    connect(url)
+    void tryConnect(url)
   }
 
   useEffect(() => {
-    handleAutoDiscover()
+    if (autoRan.current) return
+    autoRan.current = true
+    void handleAutoDiscover()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const busy = searching || connecting
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-latte px-6 safe-area-top safe-area-bottom">
@@ -74,10 +114,10 @@ const SetupScreen: React.FC = () => {
             <>
               <button
                 onClick={handleAutoDiscover}
-                disabled={searching}
+                disabled={busy}
                 className="w-full rounded-xl bg-mocha py-3.5 text-sm font-bold uppercase tracking-wide text-cream shadow-raised active:bg-mocha-dark disabled:opacity-40 disabled:shadow-none"
               >
-                {searching ? 'Buscando maquina...' : 'Buscar maquina'}
+                {searching ? 'Buscando maquina...' : connecting ? 'Conectando...' : 'Buscar maquina'}
               </button>
 
               <div className="my-4 flex items-center gap-3">
@@ -101,11 +141,20 @@ const SetupScreen: React.FC = () => {
                 />
                 <button
                   onClick={handleManualConnect}
-                  className="shrink-0 rounded-xl bg-foam px-4 py-2.5 text-sm font-semibold text-ink active:bg-line"
+                  disabled={connecting}
+                  className="shrink-0 rounded-xl bg-foam px-4 py-2.5 text-sm font-semibold text-ink active:bg-line disabled:opacity-40"
                 >
                   Conectar
                 </button>
               </div>
+
+              <button
+                onClick={() => tryConnect(PROVISIONING_AP_URL)}
+                disabled={connecting}
+                className="mt-3 w-full rounded-xl border border-line py-2.5 text-xs font-semibold text-muted active:bg-foam disabled:opacity-40"
+              >
+                Configurar Wi-Fi da maquina (modo Philco-Setup)
+              </button>
 
               {baseUrl && (
                 <p className="mt-3 text-xs text-muted">
@@ -125,12 +174,13 @@ const SetupScreen: React.FC = () => {
         {/* Ajuda */}
         <div className="mt-6 space-y-2 text-xs leading-relaxed text-muted">
           <p>
-            <strong className="font-semibold text-ink">Primeira vez?</strong> Se a maquina
-            estiver em modo de configuracao, conecte o celular na rede{' '}
+            <strong className="font-semibold text-ink">Primeira vez?</strong> Conecte o
+            celular na rede{' '}
             <code className="rounded bg-foam px-1.5 py-0.5 font-medium text-ink">
               Philco-Setup
             </code>{' '}
-            antes de buscar.
+            e use o botao de configurar Wi-Fi. Depois de receber a senha da sua rede, a
+            maquina desliga esse modo e entra na sua rede normal.
           </p>
           <p>
             Em modo normal ela aparece como{' '}

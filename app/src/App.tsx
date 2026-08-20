@@ -2,6 +2,7 @@ import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useMachine } from './context/MachineContext'
 import SetupScreen from './screens/SetupScreen'
+import ProvisionScreen from './screens/ProvisionScreen'
 import DashboardScreen from './screens/DashboardScreen'
 import ProfilesScreen from './screens/ProfilesScreen'
 import ProfileEditorScreen from './screens/ProfileEditorScreen'
@@ -15,6 +16,10 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-latte text-ink">
       <Routes>
         <Route path="/setup" element={<SetupScreen />} />
+        <Route
+          path="/provision"
+          element={connected ? <ProvisionScreen /> : <Navigate to="/setup" replace />}
+        />
         <Route
           path="/"
           element={connected ? <DashboardScreen /> : <Navigate to="/setup" replace />}

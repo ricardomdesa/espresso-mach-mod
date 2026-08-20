@@ -1,6 +1,6 @@
 # SDD-006 — Épico 6: API REST/WebSocket (comunicação ESP32 ↔ App)
 
-- **Status:** Pendente (não implementado)
+- **Status:** Implementado (build + boot validados; testes de hardware de ponta a ponta pendentes)
 - **Épico:** 6 (Fase 2)
 - **Pré-requisitos:** Épico 5 (Wi-Fi + provisionamento — SDD-005); MVP (épicos 1–4) funcionando
 - **Hardware alvo:** ESP32-C3 Super Mini (Wi-Fi onboard)
@@ -93,6 +93,33 @@ O épico 5 entrega a rede (AP/STA, mDNS, `GET /api/status`), mas o app ainda nã
 - **Escolha:** API aberta na rede local, sem senha.
 - **Por quê:** rede local doméstica, 1:1 com o app; auth adiciona complexidade sem ganho real neste contexto. Documentado como limitação (N3).
 - **Risco:** vizinho na mesma rede pode comandar a máquina — aceito e documentado; mitigação futura: token simples.
+
+### D8 — `ESPAsyncWebServer` (REST + `/ws` na mesma porta 80), no lugar de `WebServer` + Links2004
+
+- **Escolha:** `esp32async/ESPAsyncWebServer` + `esp32async/AsyncTCP`, substituindo D2.
+- **Por quê:** o contrato que o app consome é `ws://<host>/ws` — WebSocket na **porta 80, no path `/ws`**. `WebSocketsServer` (Links2004) só serve WebSocket em porta própria (81), o que quebraria o contrato ou exigiria duas portas no app. O servidor assíncrono entrega REST e `/ws` no mesmo listener.
+- **Bônus:** o TCP roda na task do AsyncTCP, então nem `handleClient()` existe no `loop()` — N1 (loop de controle nunca bloqueado) sai de graça.
+- **Custo:** o handler REST roda fora do loop principal, então quem mexe no `DisplayModel` de lá compete com o loop de 5 ms. Hoje só escreve escalares (`float`/`bool`), que são atômicos no C3; quando o PID entrar (épicos 3-4) isso precisa de um mutex ou de uma fila de comandos.
+
+### D9 — Streaming publicado do `loop()`, não de uma task dedicada
+
+- **Escolha:** `ApiServer::loop()` publica o frame a cada 100 ms (`WS_STREAM_INTERVAL_MS`) direto do loop principal, substituindo a task do D3.
+- **Por quê:** `ws.textAll()` só enfileira — a transmissão real já é assíncrona. Uma task extra só acrescentaria concorrência de leitura sobre o `DisplayModel` sem ganho.
+- **Guarda:** se não há cliente conectado (`ws_.count() == 0`), nem monta o frame.
+
+### D10 — `ArduinoJson` na borda, `snprintf` no caminho quente
+
+- **Escolha:** `ArduinoJson` para *parsear* corpos de requisição e manipular o array de perfis; `snprintf` em buffer de pilha para o JSON de status e para o frame de 100 ms.
+- **Por quê:** N2 vale onde a frequência importa (o frame de streaming). Parsear JSON de comando à mão seria frágil, e comandos são eventos raros.
+
+### D11 — Rotas extras não previstas no contrato original
+
+- `GET /api/wifi/scan` — lista as redes visíveis para a tela de provisionamento do app (SSID, RSSI, se é protegida).
+- `POST /api/wifi/forget` — apaga a credencial e volta ao modo AP.
+- `POST /api/factory-reset` — limpa a NVS inteira.
+- `PUT /api/setpoint/pressure` — simetria com o setpoint de temperatura.
+- O status ganhou `api` (versão do contrato, N4), `ip` e `heap` (diagnóstico).
+- **CORS:** a WebView do app roda em `http://localhost`, então toda chamada à máquina é cross-origin. O servidor responde `Access-Control-Allow-Origin: *` e trata o preflight `OPTIONS`.
 
 ## 6. Estrutura de Código
 

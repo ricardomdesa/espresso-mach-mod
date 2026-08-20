@@ -19,6 +19,18 @@ export interface MachineStatus {
   pid: PIDParams
 }
 
+export interface WiFiNetwork {
+  ssid: string
+  rssi: number
+  secure: boolean
+}
+
+export interface WiFiScanResult {
+  /** Ainda varrendo: vale pedir de novo daqui a pouco. */
+  scanning: boolean
+  networks: WiFiNetwork[]
+}
+
 export interface ProfileStep {
   time_s: number
   pressure_bar: number

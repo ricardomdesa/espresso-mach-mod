@@ -1,6 +1,6 @@
 # SDD-005 — Épico 5: Wi-Fi + Provisionamento (AP/STA)
 
-- **Status:** Pendente (não implementado)
+- **Status:** Implementado (build + boot validados; testes de hardware de ponta a ponta pendentes)
 - **Épico:** 5 (Fase 2 — primeiro épico da Fase 2)
 - **Pré-requisitos:** Épico 4 concluído (MVP offline); teste de bancada do modo AP validado (`test/wifi_ap`)
 - **Hardware alvo:** ESP32-C3 Super Mini (Wi-Fi 802.11 b/g/n onboard, 2.4 GHz)
@@ -83,6 +83,20 @@ O MVP (épicos 1-4) é offline: setpoints e ganhos fixos em `#define`, sem rede.
 
 - **Achado (teste de bancada):** `GET /` chega no servidor mas o browser mostra tela branca (resposta vazia). Suspeita: concatenação `String` + `F()` no handler.
 - **Fix:** resposta estática em `PROGMEM` + `snprintf_P` (já aplicado no `test/wifi_ap`). Validar no hardware antes de integrar o portal cativo do WiFiManager, senão o provisionamento pelo app pode falhar.
+
+### D7 — Provisionamento sem WiFiManager: AP efêmero + `POST /api/wifi/provision`
+
+- **Escolha:** implementação própria em `WifiProvisioner` (AP/STA + NVS + mDNS), substituindo D1 (`tzapu/WiFiManager`).
+- **Por quê:** o portal cativo do WiFiManager não é usado — quem coleta SSID/senha é o **app**, na tela de provisionamento, via `POST /api/wifi/provision`. Manter o WiFiManager só pelo fallback traria uma dependência grande (e de compatibilidade duvidosa no C3) para um fluxo que não usamos.
+- **Regra de produto (definida pelo usuário):** o AP `Philco-Setup` fica ativo **somente** enquanto não há credencial válida. Assim que a credencial chega, o AP cai e a máquina entra na rede do usuário como STA.
+- **Consequência:** o AP sobe em `WIFI_AP_STA` (e não `WIFI_AP`), porque a interface STA precisa estar ativa para `GET /api/wifi/scan` varrer as redes do usuário.
+- **Aplicação da credencial via reboot:** após salvar em NVS, o firmware responde 200 e reinicia ~800 ms depois. Reiniciar derruba AP, servidor e sockets de uma vez — mais previsível que reconfigurar o rádio com conexões abertas.
+
+### D8 — Tabela de partições `huge_app.csv`
+
+- **Escolha:** `board_build.partitions = huge_app.csv`.
+- **Por quê:** com Wi-Fi + servidor assíncrono o binário passa de 1,1 MB e a tabela padrão (dois slots de OTA) deixa só 1,3 MB — 88,6% de ocupação, sem folga para os épicos 2-4. Com `huge_app` são 3 MB (36,9%).
+- **Custo:** sem OTA. Aceito por enquanto; a máquina é gravada por USB.
 
 ## 6. Estrutura de Código
 
