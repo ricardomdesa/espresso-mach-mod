@@ -16,7 +16,9 @@ Roadmap de implementação. Cada épico possui um SDD em `docs/sdd/NNN-*.md` que
 | 2 | **Sensor: temperatura** | MAX6675 (SPI, termopar K), calibração de offset/ganho, publicação no modelo de dados. | 1 (usa o modelo de dados do display) | SDD pronto (`002-sensor-temperatura.md`) |
 | 3 | **Controle: PID temperatura + bomba** | PID de temperatura com SSR (3-32VDC, PWM baixa frequência), dimmer AC zero-cross p/ bomba Ulka, setpoints fixos no firmware (MVP). | 2 | SDD pronto (`003-pid-temperatura-bomba.md`) |
 | 4 | **Integração MVP + calibração** | Loop de controle completo, extração (start/stop atrelado à bomba, cronômetro real), ajuste fino PID no hardware, teste de extração real, documentação de calibração. | 3 | SDD pronto (`004-integracao-calibracao.md`) |
-| 5+ | **Fase 2 (futuro, sem SDD)** | Sensor de pressão (transdutor 0–150 PSI via ADC + divisor de tensão) e adição ao modelo de dados; Wi-Fi + WiFiManager, mDNS (`philco.local`), REST/WebSocket, app React + Capacitor, NVS p/ persistir config, balança. | 4 | Futuro |
+| 5 | **Wi-Fi + provisionamento** | Wi-Fi AP/STA via WiFiManager, portal cativo, credencial em NVS, mDNS (`philco.local`), fallback AP, endpoint REST mínimo (`GET /api/status`). | 4 | SDD pronto (`005-wifi-provisionamento.md`) |
+| 6 | **API REST/WebSocket** | Contrato de comunicação ESP32↔app: REST p/ comandos (setpoint, PID, start/stop extração, CRUD de perfis), WebSocket p/ streaming de leituras (100 ms) + eventos, persistência em NVS (setpoints, PID, perfis). | 5 | SDD pronto (`006-api-rest-websocket.md`) |
+| 7 | **App Android (React + Capacitor)** | Descoberta mDNS, dashboard WebSocket, ajuste PID/temp, CRUD perfis, gráficos ao vivo, histórico local. | 6 | SDD pronto (`007-app-android.md`) |
 
 ## Decisões entre épicos
 
