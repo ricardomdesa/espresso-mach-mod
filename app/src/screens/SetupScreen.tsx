@@ -13,11 +13,13 @@ const SetupScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const autoRan = useRef(false)
 
-  // Máquina em modo AP só serve para receber a credencial de Wi-Fi.
+  // Redireciona assim que a máquina confirma o modo: AP → pareamento,
+  // qualquer outro (STA) → dashboard. Sem isso, o SetupScreen fica preso no
+  // "Conectado! Redirecionando..." quando a máquina responde em STA — a rota
+  // "/" só redireciona sozinha se o usuário já estiver nela, não em /setup.
   useEffect(() => {
-    if (connected && status?.wifiMode === 'ap') {
-      navigate('/provision', { replace: true })
-    }
+    if (!connected || !status) return
+    navigate(status.wifiMode === 'ap' ? '/provision' : '/', { replace: true })
   }, [connected, status, navigate])
 
   const tryConnect = async (url: string) => {
@@ -174,13 +176,15 @@ const SetupScreen: React.FC = () => {
         {/* Ajuda */}
         <div className="mt-6 space-y-2 text-xs leading-relaxed text-muted">
           <p>
-            <strong className="font-semibold text-ink">Primeira vez?</strong> Conecte o
-            celular na rede{' '}
+            <strong className="font-semibold text-ink">Primeira vez?</strong> Na maquina,
+            segure o botao por <strong className="font-semibold text-ink">10 segundos</strong>{' '}
+            na tela inicial — ela liga o modo{' '}
             <code className="rounded bg-foam px-1.5 py-0.5 font-medium text-ink">
               Philco-Setup
-            </code>{' '}
-            e use o botao de configurar Wi-Fi. Depois de receber a senha da sua rede, a
-            maquina desliga esse modo e entra na sua rede normal.
+            </code>
+            . Conecte o celular nessa rede e use o botao de configurar Wi-Fi. Depois de
+            receber a senha da sua rede, a maquina desliga esse modo e entra na sua rede
+            normal.
           </p>
           <p>
             Em modo normal ela aparece como{' '}

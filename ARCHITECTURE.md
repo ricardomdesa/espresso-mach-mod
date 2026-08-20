@@ -110,15 +110,18 @@ Responsável por tudo que não é essencial no display físico:
 
 ### Provisionamento Wi-Fi (padrão IoT: AP + STA)
 
-Mesmo fluxo de interruptor/câmera Wi-Fi smart:
+Mesmo fluxo de interruptor/câmera Wi-Fi smart, com uma diferença de segurança: **o AP nunca abre sozinho**.
 
-1. **Primeiro boot / sem credencial salva:** ESP32 sobe em modo AP (SSID ex. `Philco-Setup`), IP fixo `192.168.4.1`.
-2. **Pareamento:** celular conecta nesse SSID, app abre portal cativo pedindo SSID/senha da rede de casa.
-3. **Provisionamento:** app envia credencial via HTTP POST pro ESP32, que salva em NVS, derruba AP, conecta como STA na rede de casa.
-4. **Uso normal:** ESP32 na rede de casa. Descoberta via **mDNS** — dispositivo publica hostname `philco.local`, app resolve esse nome em vez de guardar IP fixo (evita quebrar com IP dinâmico do DHCP).
-5. **Falha de conexão:** se perder STA (troca de roteador, senha errada), ESP32 volta sozinho pro modo AP pra reconfiguração.
+1. **Primeiro boot / sem credencial salva:** ESP32 fica **offline** (sem AP, sem STA). O firmware MVP funciona normalmente.
+2. **Entrada no modo de configuração:** usuário segura o botão da tela inicial por **10 segundos** (barra de progresso no OLED). O firmware seta uma flag one-shot na NVS e reinicia; o boot lê a flag e sobe o AP `Philco-Setup` (IP fixo `192.168.4.1`). O OLED muda para a **tela de pareamento** (SSID/IP), que substitui a navegação normal enquanto o AP está no ar.
+3. **Pareamento:** celular conecta nesse SSID e o app coleta SSID/senha da rede de casa.
+4. **Provisionamento:** app envia credencial via HTTP POST pro ESP32, que salva em NVS, derruba AP, conecta como STA na rede de casa.
+5. **Uso normal:** ESP32 na rede de casa. Descoberta via **mDNS** — dispositivo publica hostname `philco.local`, app resolve esse nome em vez de guardar IP fixo (evita quebrar com IP dinâmico do DHCP).
+6. **Falha de conexão:** se perder STA (troca de roteador, senha errada), a máquina fica offline — **não** volta sozinha pro AP. Reconfigurar exige o mesmo hold de 10 s.
 
-Implementação: usar lib **WiFiManager** (tzapu) — já resolve portal cativo, salvar credencial, fallback AP, sem reinventar. Habilitar mDNS via `ESPmDNS.h` (`MDNS.begin("philco")`).
+**Por quê:** AP aberto na rede do usuário é um vetor de acesso (qualquer vizinho poderia reprovisionar a máquina). Exigir hold físico de 10 s garante que o AP só aparece com acesso à máquina.
+
+Implementação: AP/STA manual em `WifiProvisioner` (sem WiFiManager — o portal cativo não é usado; quem coleta SSID/senha é o app). Habilitar mDNS via `ESPmDNS.h` (`MDNS.begin("philco")`).
 
 ## Melhorias Futuras
 

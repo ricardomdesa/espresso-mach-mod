@@ -18,6 +18,10 @@ public:
     // Verdadeiro por um ciclo de update() ao atingir o limiar de long press.
     bool longPressed() const { return longPressed_; }
 
+    // Estado atual do botão (pressionado ou não), pós-debounce — usado para
+    // medir duração de hold no main.cpp (entrada manual no modo AP).
+    bool isPressed() const { return stableState_ == LOW; }
+
 private:
     uint8_t pin_;
     unsigned long debounceMs_;

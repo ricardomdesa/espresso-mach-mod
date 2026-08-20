@@ -16,6 +16,8 @@ constexpr const char *kKeyKi = "ki";
 constexpr const char *kKeyKd = "kd";
 constexpr const char *kKeyActiveProf = "active_prof";
 constexpr const char *kKeyProfiles = "profiles";
+// One-shot: hold do botão pediu modo de configuração; o boot lê e limpa.
+constexpr const char *kKeyForceAp = "force_ap";
 
 } // namespace
 
@@ -72,6 +74,22 @@ void NvsConfig::clearWifiCredentials() {
     if (!open(false)) return;
     prefs_.remove(kKeyWifiSsid);
     prefs_.remove(kKeyWifiPass);
+    close();
+}
+
+bool NvsConfig::consumeForceAp() {
+    if (!open(false)) return false;
+    const bool flag = prefs_.getBool(kKeyForceAp, false);
+    if (flag) {
+        prefs_.remove(kKeyForceAp); // one-shot: só vale para o próximo boot
+    }
+    close();
+    return flag;
+}
+
+void NvsConfig::setForceAp() {
+    if (!open(false)) return;
+    prefs_.putBool(kKeyForceAp, true);
     close();
 }
 
@@ -151,6 +169,6 @@ void NvsConfig::saveProfilesJson(const char *json) {
 
 void NvsConfig::factoryReset() {
     if (!open(false)) return;
-    prefs_.clear();
+    prefs_.clear(); // limpa tudo, inclusive force_ap
     close();
 }

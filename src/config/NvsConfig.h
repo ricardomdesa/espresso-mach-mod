@@ -25,6 +25,10 @@ public:
     void saveWifiCredentials(const char *ssid, const char *password);
     void clearWifiCredentials();
 
+    // One-shot "abrir AP no boot" (hold do botão). O boot lê e limpa.
+    bool consumeForceAp();
+    void setForceAp();
+
     // --- Controle (setpoints + PID) ---
     // Carrega para o model; grava os defaults do model se a NVS estiver vazia.
     void loadControl(DisplayModel &model);

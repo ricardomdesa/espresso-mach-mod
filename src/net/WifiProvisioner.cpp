@@ -12,9 +12,28 @@ constexpr unsigned long kSwitchDelayMs = 800;
 constexpr unsigned long kScanRetryMs = 3000;
 } // namespace
 
+void onWifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
+    if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
+        // reason code ajuda a diagnosticar: 2=AUTH_EXPIRE, 15=4WAY_HANDSHAKE
+        // (senha errada), 201=NO_AP_FOUND (rede 5GHz/fora de alcance),
+        // 202=AUTH_FAIL, 205=CONNECTION_FAIL.
+        Serial.printf("[wifi] STA desconectada, reason=%u\n",
+                      static_cast<unsigned>(info.wifi_sta_disconnected.reason));
+    }
+}
+
 void WifiProvisioner::begin() {
     WiFi.persistent(false); // a credencial é nossa, guardada na NVS do app
     WiFi.setAutoReconnect(true);
+    WiFi.onEvent(onWifiEvent);
+
+    // Hold do botão pediu o modo de configuração: sobe o AP direto, mesmo
+    // com credencial salva. Flag one-shot (lida e limpa aqui).
+    if (nvs_.consumeForceAp()) {
+        Serial.println(F("[wifi] forca-AP ativa (hold do botao); abrindo configuracao"));
+        startAp();
+        return;
+    }
 
     char ssid[33] = {0};
     char pass[65] = {0};
@@ -25,12 +44,14 @@ void WifiProvisioner::begin() {
         if (startSta(ssid, pass)) {
             return;
         }
-        Serial.println(F("[wifi] falha ao conectar; voltando para o modo de configuracao"));
+        Serial.println(F("[wifi] falha ao conectar; aguardando hold do botao para configurar"));
     } else {
-        Serial.println(F("[wifi] sem credencial salva"));
+        Serial.println(F("[wifi] sem credencial salva; aguardando hold do botao para configurar"));
     }
 
-    startAp();
+    // Sem AP automático no boot (segurança, regra do usuário): sem credencial
+    // válida a máquina fica offline — o AP só abre com hold de 10 s na tela
+    // inicial (requestAp()). O firmware MVP segue funcionando normalmente.
 }
 
 bool WifiProvisioner::startSta(const char *ssid, const char *password) {
@@ -46,6 +67,7 @@ bool WifiProvisioner::startSta(const char *ssid, const char *password) {
 
     if (WiFi.status() != WL_CONNECTED) {
         WiFi.disconnect(true);
+        mode_ = WifiMode::Offline;
         return false;
     }
 
@@ -53,6 +75,9 @@ bool WifiProvisioner::startSta(const char *ssid, const char *password) {
     staLostSinceMs_ = 0;
     Serial.print(F("[wifi] conectado. IP: "));
     Serial.println(WiFi.localIP());
+    // Derruba qualquer AP residual (ex.: hold do botão aconteceu entre
+    // begin() e a conexão STA) — AP e STA não coexistem neste produto.
+    WiFi.softAPdisconnect(true);
     startMdns();
     return true;
 }
@@ -94,7 +119,9 @@ bool WifiProvisioner::isConnected() const {
 }
 
 IPAddress WifiProvisioner::ip() const {
-    return mode_ == WifiMode::Sta ? WiFi.localIP() : WiFi.softAPIP();
+    if (mode_ == WifiMode::Sta) return WiFi.localIP();
+    if (mode_ == WifiMode::Ap) return WiFi.softAPIP();
+    return IPAddress(0, 0, 0, 0);
 }
 
 bool WifiProvisioner::provision(const char *ssid, const char *password) {
@@ -108,6 +135,16 @@ bool WifiProvisioner::provision(const char *ssid, const char *password) {
 void WifiProvisioner::forget() {
     nvs_.clearWifiCredentials();
     pendingSwitchAtMs_ = millis() + kSwitchDelayMs;
+}
+
+void WifiProvisioner::requestAp() {
+    // Reinicia sempre (mesmo offline): o boot lê a flag e sobe o AP. Se
+    // houver credencial salva, sem a flag o boot re-conectaria na STA —
+    // por isso a flag é persistida e consumida no boot (one-shot).
+    nvs_.setForceAp();
+    Serial.println(F("[wifi] hold do botao completou; reiniciando para o modo de configuracao"));
+    Serial.flush();
+    ESP.restart();
 }
 
 void WifiProvisioner::requestScan() {
@@ -168,7 +205,8 @@ void WifiProvisioner::loop() {
 
     if (mode_ != WifiMode::Sta) return;
 
-    // Perda prolongada de STA reabre o AP para reconfiguração (F5 do SDD-005).
+    // Perda de STA: registra o instante. Sem reabertura automática do AP —
+    // reconfigurar exige hold do botão (segurança, regra do usuário).
     if (WiFi.status() == WL_CONNECTED) {
         staLostSinceMs_ = 0;
         return;
@@ -176,12 +214,5 @@ void WifiProvisioner::loop() {
 
     if (staLostSinceMs_ == 0) {
         staLostSinceMs_ = now;
-        return;
-    }
-
-    if (now - staLostSinceMs_ >= STA_LOST_GRACE_MS) {
-        Serial.println(F("[wifi] conexao perdida; voltando ao modo de configuracao"));
-        staLostSinceMs_ = 0;
-        startAp();
     }
 }

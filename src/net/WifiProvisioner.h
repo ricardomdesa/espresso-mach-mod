@@ -6,8 +6,9 @@
 
 // Estados de rede do firmware.
 enum class WifiMode : uint8_t {
-    Ap,  // modo de provisionamento: existe só para receber SSID/senha
-    Sta, // operação normal: máquina na rede do usuário
+    Offline, // sem AP e sem STA: máquina offline (sem credencial ou hold não feito)
+    Ap,      // modo de provisionamento: existe só para receber SSID/senha
+    Sta,     // operação normal: máquina na rede do usuário
 };
 
 // Provisionamento Wi-Fi no padrão IoT, implementado à mão (sem WiFiManager)
@@ -20,10 +21,11 @@ class WifiProvisioner {
 public:
     explicit WifiProvisioner(NvsConfig &nvs) : nvs_(nvs) {}
 
-    // Lê a credencial da NVS e tenta STA; sem credencial (ou falhando), sobe o AP.
+    // Lê a credencial da NVS e tenta STA; sem credencial fica offline (sem AP).
     void begin();
 
-    // Chamar no loop: monitora perda de conexão STA e reabre o AP se preciso.
+    // Chamar no loop: monitora a conexão STA. Só o hold do botão na tela
+    // inicial abre o AP (segurança, veja requestAp()).
     void loop();
 
     WifiMode mode() const { return mode_; }
@@ -39,6 +41,12 @@ public:
 
     // Apaga a credencial e volta para o modo AP no próximo `loop()`.
     void forget();
+
+    // Segurança (regra do usuário): o AP só entra no ar via hold de 10 s do
+    // botão na tela inicial. Este método seta uma flag one-shot na NVS e
+    // reinicia — o boot lê a flag e sobe o AP direto (mesmo com credencial
+    // salva), sem risco de re-conectar na STA no meio do caminho.
+    void requestAp();
 
     // --- Varredura de redes (para a tela de provisionamento do app) ---
     //
@@ -62,7 +70,7 @@ public:
 
 private:
     NvsConfig &nvs_;
-    WifiMode mode_ = WifiMode::Ap;
+    WifiMode mode_ = WifiMode::Offline;
 
     unsigned long pendingSwitchAtMs_ = 0; // 0 = nada agendado
     unsigned long staLostSinceMs_ = 0;    // 0 = conexão ok

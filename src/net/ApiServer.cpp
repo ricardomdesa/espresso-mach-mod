@@ -106,6 +106,10 @@ void ApiServer::buildStatusJson(char *out, size_t outLen) const {
         snprintf(profileField, sizeof(profileField), "\"%s\"", model_.activeProfileId());
     }
 
+    const char *wifiMode = "offline";
+    if (wifi_.mode() == WifiMode::Ap) wifiMode = "ap";
+    if (wifi_.mode() == WifiMode::Sta) wifiMode = "sta";
+
     snprintf(out, outLen,
              "{\"api\":%d,\"temp\":%.2f,\"press\":%.2f,\"tempSetpoint\":%.2f,"
              "\"pressSetpoint\":%.2f,\"timer\":%.1f,\"state\":\"%s\",\"profile\":%s,"
@@ -114,7 +118,7 @@ void ApiServer::buildStatusJson(char *out, size_t outLen) const {
              API_VERSION, model_.tempCurrent(), model_.pressureCurrent(),
              model_.tempSetpoint(), model_.pressureSetpoint(),
              model_.timer().elapsedMs() / 1000.0f, modeName(model_.mode()), profileField,
-             millis() / 1000UL, wifi_.mode() == WifiMode::Sta ? "sta" : "ap",
+             millis() / 1000UL, wifiMode,
              wifi_.ip().toString().c_str(), model_.pid().kp, model_.pid().ki, model_.pid().kd,
              (unsigned long)ESP.getFreeHeap());
 }

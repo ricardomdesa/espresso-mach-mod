@@ -15,7 +15,7 @@ export interface MachineStatus {
   state: MachineState
   profile: string | null
   uptime: number
-  wifiMode: 'ap' | 'sta'
+  wifiMode: 'ap' | 'sta' | 'offline'
   pid: PIDParams
 }
 

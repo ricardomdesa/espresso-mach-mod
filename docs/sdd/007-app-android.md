@@ -32,7 +32,7 @@ O MVP (épicos 1–4) e a fundação de rede (épicos 5–6) entregam o firmware
 
 - `ARCHITECTURE.md` §"App React + Capacitor (mobile)": app é a interface rica para tudo que não cabe no OLED — ajuste PID, perfis, gráficos, histórico.
 - `ARCHITECTURE.md` §"Comunicação ESP32 ↔ App": app resolve o ESP32 via mDNS (`philco.local`) e consome WebSocket (streaming 100 ms) + REST (comandos).
-- SDD-005 entrega: AP `Philco-Setup`, portal cativo, STA, mDNS, fallback AP.
+- SDD-005 entrega: AP `Philco-Setup` **sob demanda** (hold de 10 s do botão), STA, mDNS; sem fallback automático de AP (segurança).
 - SDD-006 entrega: REST completo (`/api/status`, `/api/setpoint/*`, `/api/pid`, `/api/extraction/*`, `/api/profiles/*`) e WebSocket (`/ws`) com streaming + eventos.
 - Contrato API já estável (SDD-006 §6) — app é consumidor, não define novos endpoints.
 
