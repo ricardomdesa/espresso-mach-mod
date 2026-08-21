@@ -65,8 +65,13 @@ public:
     void requestScan();
     // Inclui a varredura ainda só pedida, para o app saber que vale repetir.
     bool scanning() const { return scanning_ || scanRequested_; }
-    uint8_t scanCount() const { return scanCount_; }
-    const ScanEntry &scanEntry(uint8_t i) const { return scanResults_[i]; }
+    // scanCount()/scanEntry() são lidos pela task do AsyncTCP (handler de
+    // /api/wifi/scan) enquanto scanNow() (loop principal) reseta e repopula
+    // scanResults_/scanCount_ — protegidos por scanMux_ (D5, achado de review).
+    uint8_t scanCount() const;
+    // Devolve cópia (não referência): a referência poderia apontar para uma
+    // entrada sendo reescrita por scanNow() assim que o critical section sai.
+    ScanEntry scanEntry(uint8_t i) const;
 
 private:
     NvsConfig &nvs_;
@@ -77,6 +82,7 @@ private:
 
     ScanEntry scanResults_[kMaxScanResults];
     uint8_t scanCount_ = 0;
+    mutable portMUX_TYPE scanMux_ = portMUX_INITIALIZER_UNLOCKED;
     volatile bool scanning_ = false;
     volatile bool scanRequested_ = false;
     // Intervalo mínimo entre re-varreduras pedidas pelo app.

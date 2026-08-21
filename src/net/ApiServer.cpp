@@ -129,7 +129,13 @@ void ApiServer::sendStatus(AsyncWebServerRequest *request, int code) const {
     request->send(code, kJson, buf);
 }
 
+bool ApiServer::authOk(AsyncWebServerRequest *request) const {
+    const AsyncWebHeader *h = request->getHeader("X-Auth-Token");
+    return h != nullptr && h->value() == authToken_;
+}
+
 void ApiServer::begin() {
+    nvs_.loadOrCreateAuthToken(authToken_, sizeof(authToken_));
     registerWebSocket();
     registerRoutes();
     server_.begin();
@@ -138,7 +144,7 @@ void ApiServer::begin() {
 
 void ApiServer::registerWebSocket() {
     ws_.onEvent([this](AsyncWebSocket *, AsyncWebSocketClient *client, AwsEventType type,
-                       void *, uint8_t *data, size_t len) {
+                       void *arg, uint8_t *data, size_t len) {
         switch (type) {
         case WS_EVT_CONNECT:
             Serial.printf("[ws] cliente %u conectado\n", client->id());
@@ -147,8 +153,11 @@ void ApiServer::registerWebSocket() {
             Serial.printf("[ws] cliente desconectado\n");
             break;
         case WS_EVT_DATA: {
-            // Único comando aceito hoje: keepalive.
-            if (len >= 4 && strstr(reinterpret_cast<const char *>(data), "ping") != nullptr) {
+            // Único comando aceito hoje: keepalive. Frames binários não são
+            // NUL-terminados: rodar strstr neles é leitura fora do buffer.
+            const AwsFrameInfo *info = static_cast<AwsFrameInfo *>(arg);
+            if (info->opcode == WS_TEXT && len >= 4 &&
+                strstr(reinterpret_cast<const char *>(data), "ping") != nullptr) {
                 client->text("{\"event\":\"pong\"}");
             }
             break;
@@ -165,7 +174,8 @@ void ApiServer::registerRoutes() {
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods",
                                          "GET, POST, PUT, DELETE, OPTIONS");
-    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "Content-Type, Accept");
+    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers",
+                                         "Content-Type, Accept, X-Auth-Token");
 
     server_.onNotFound([](AsyncWebServerRequest *request) {
         if (request->method() == HTTP_OPTIONS) {
@@ -182,6 +192,10 @@ void ApiServer::registerRoutes() {
     // --- Setpoints e PID ---
     onJsonBody(server_, "/api/setpoint/temp", HTTP_PUT,
                [this](AsyncWebServerRequest *request, JsonVariantConst body) {
+                   if (!authOk(request)) {
+                       sendError(request, 401, "token invalido");
+                       return;
+                   }
                    if (!body["temp"].is<float>()) {
                        sendError(request, 400, "campo temp ausente");
                        return;
@@ -198,6 +212,10 @@ void ApiServer::registerRoutes() {
 
     onJsonBody(server_, "/api/setpoint/pressure", HTTP_PUT,
                [this](AsyncWebServerRequest *request, JsonVariantConst body) {
+                   if (!authOk(request)) {
+                       sendError(request, 401, "token invalido");
+                       return;
+                   }
                    if (!body["press"].is<float>()) {
                        sendError(request, 400, "campo press ausente");
                        return;
@@ -214,6 +232,10 @@ void ApiServer::registerRoutes() {
 
     onJsonBody(server_, "/api/pid", HTTP_PUT,
                [this](AsyncWebServerRequest *request, JsonVariantConst body) {
+                   if (!authOk(request)) {
+                       sendError(request, 401, "token invalido");
+                       return;
+                   }
                    if (!body["kp"].is<float>() || !body["ki"].is<float>() ||
                        !body["kd"].is<float>()) {
                        sendError(request, 400, "campos kp/ki/kd obrigatorios");
@@ -232,6 +254,10 @@ void ApiServer::registerRoutes() {
 
     // --- Extração ---
     server_.on("/api/extraction/start", HTTP_POST, [this](AsyncWebServerRequest *request) {
+        if (!authOk(request)) {
+            sendError(request, 401, "token invalido");
+            return;
+        }
         model_.timer().reset();
         model_.timer().start();
         broadcastEvent("extraction_started");
@@ -239,6 +265,10 @@ void ApiServer::registerRoutes() {
     });
 
     server_.on("/api/extraction/stop", HTTP_POST, [this](AsyncWebServerRequest *request) {
+        if (!authOk(request)) {
+            sendError(request, 401, "token invalido");
+            return;
+        }
         model_.timer().stop();
         broadcastEvent("extraction_stopped");
         sendStatus(request);
@@ -252,6 +282,10 @@ void ApiServer::registerRoutes() {
 
     onJsonBody(server_, "/api/profiles/active", HTTP_PUT,
                [this](AsyncWebServerRequest *request, JsonVariantConst body) {
+                   if (!authOk(request)) {
+                       sendError(request, 401, "token invalido");
+                       return;
+                   }
                    const char *id = body["id"] | "";
                    model_.setActiveProfileId(id);
                    nvs_.saveActiveProfileId(id);
@@ -260,6 +294,10 @@ void ApiServer::registerRoutes() {
 
     onJsonBody(server_, "/api/profiles", HTTP_POST,
                [this](AsyncWebServerRequest *request, JsonVariantConst body) {
+                   if (!authOk(request)) {
+                       sendError(request, 401, "token invalido");
+                       return;
+                   }
                    if (!body["name"].is<const char *>()) {
                        sendError(request, 400, "campo name obrigatorio");
                        return;
@@ -273,23 +311,35 @@ void ApiServer::registerRoutes() {
                    JsonObject created = arr.add<JsonObject>();
                    created.set(body.as<JsonObjectConst>());
                    char id[24];
-                   snprintf(id, sizeof(id), "p%lu", millis());
+                   // Contador persistido (não millis()): sobrevive a reboots, então
+                   // o ID não colide com um já usado antes do reset (achado de review).
+                   snprintf(id, sizeof(id), "p%lu", (unsigned long)nvs_.nextProfileId());
                    created["id"] = id;
 
-                   if (serializeJson(doc, g_scratchB, sizeof(g_scratchB)) == 0) {
+                   // v7 do ArduinoJson devolve o total de bytes escritos, igual ao
+                   // tamanho do buffer quando trunca (nunca 0) — por isso o teste
+                   // certo de overflow é ">= sizeof(buffer)", não "== 0".
+                   if (serializeJson(doc, g_scratchB, sizeof(g_scratchB)) >= sizeof(g_scratchB)) {
                        sendError(request, 507, "sem espaco para mais perfis");
                        return;
                    }
                    nvs_.saveProfilesJson(g_scratchB);
 
                    char single[768];
-                   serializeJson(created, single, sizeof(single));
+                   if (serializeJson(created, single, sizeof(single)) >= sizeof(single)) {
+                       sendError(request, 507, "perfil grande demais para responder");
+                       return;
+                   }
                    request->send(201, kJson, single);
                });
 
     // PUT/DELETE de um perfil específico: /api/profiles/{id}
     onJsonBody(server_, "^\\/api\\/profiles\\/([A-Za-z0-9_-]+)$", HTTP_PUT,
                [this](AsyncWebServerRequest *request, JsonVariantConst body) {
+                   if (!authOk(request)) {
+                       sendError(request, 401, "token invalido");
+                       return;
+                   }
                    const String id = request->pathArg(0);
 
                    nvs_.loadProfilesJson(g_scratchA, sizeof(g_scratchA));
@@ -302,14 +352,17 @@ void ApiServer::registerRoutes() {
                        p.set(body.as<JsonObjectConst>());
                        p["id"] = id;
 
-                       if (serializeJson(doc, g_scratchB, sizeof(g_scratchB)) == 0) {
+                       if (serializeJson(doc, g_scratchB, sizeof(g_scratchB)) >= sizeof(g_scratchB)) {
                            sendError(request, 507, "perfil grande demais");
                            return;
                        }
                        nvs_.saveProfilesJson(g_scratchB);
 
                        char single[768];
-                       serializeJson(p, single, sizeof(single));
+                       if (serializeJson(p, single, sizeof(single)) >= sizeof(single)) {
+                           sendError(request, 507, "perfil grande demais para responder");
+                           return;
+                       }
                        request->send(200, kJson, single);
                        return;
                    }
@@ -318,6 +371,10 @@ void ApiServer::registerRoutes() {
 
     server_.on("^\\/api\\/profiles\\/([A-Za-z0-9_-]+)$", HTTP_DELETE,
                [this](AsyncWebServerRequest *request) {
+                   if (!authOk(request)) {
+                       sendError(request, 401, "token invalido");
+                       return;
+                   }
                    const String id = request->pathArg(0);
 
                    nvs_.loadProfilesJson(g_scratchA, sizeof(g_scratchA));
@@ -348,16 +405,23 @@ void ApiServer::registerRoutes() {
         wifi_.requestScan();
 
         size_t at = 0;
-        at += snprintf(g_scratchA + at, sizeof(g_scratchA) - at, "{\"scanning\":%s,\"networks\":[",
-                       wifi_.scanning() ? "true" : "false");
-        for (uint8_t i = 0; i < wifi_.scanCount(); i++) {
-            const WifiProvisioner::ScanEntry &e = wifi_.scanEntry(i);
+        int n = snprintf(g_scratchA + at, sizeof(g_scratchA) - at,
+                          "{\"scanning\":%s,\"networks\":[", wifi_.scanning() ? "true" : "false");
+        // Clampa "at" ao tamanho do buffer a cada snprintf: o valor de retorno é
+        // o que TERIA sido escrito sem truncar, então acumular sem clamp faz
+        // "sizeof(buffer) - at" estourar (size_t) na próxima chamada.
+        at += (n > 0) ? static_cast<size_t>(n) : 0;
+        if (at > sizeof(g_scratchA)) at = sizeof(g_scratchA);
+
+        for (uint8_t i = 0; i < wifi_.scanCount() && at < sizeof(g_scratchA) - 4; i++) {
+            const WifiProvisioner::ScanEntry e = wifi_.scanEntry(i);
             char ssid[sizeof(e.ssid) * 2];
             jsonEscape(e.ssid, ssid, sizeof(ssid));
-            at += snprintf(g_scratchA + at, sizeof(g_scratchA) - at,
-                           "%s{\"ssid\":\"%s\",\"rssi\":%d,\"secure\":%s}", i == 0 ? "" : ",",
-                           ssid, e.rssi, e.secure ? "true" : "false");
-            if (at >= sizeof(g_scratchA) - 4) break;
+            n = snprintf(g_scratchA + at, sizeof(g_scratchA) - at,
+                         "%s{\"ssid\":\"%s\",\"rssi\":%d,\"secure\":%s}", i == 0 ? "" : ",", ssid,
+                         e.rssi, e.secure ? "true" : "false");
+            at += (n > 0) ? static_cast<size_t>(n) : 0;
+            if (at > sizeof(g_scratchA)) at = sizeof(g_scratchA);
         }
         snprintf(g_scratchA + at, sizeof(g_scratchA) - at, "]}");
         request->send(200, kJson, g_scratchA);
@@ -365,22 +429,43 @@ void ApiServer::registerRoutes() {
 
     onJsonBody(server_, "/api/wifi/provision", HTTP_POST,
                [this](AsyncWebServerRequest *request, JsonVariantConst body) {
+                   // Exceção ao gate de token: enquanto o AP de configuração está
+                   // no ar (só sobe via hold de 10s no botão físico — segurança já
+                   // garantida por isso), é este endpoint que entrega o token pela
+                   // primeira vez. Em modo STA, mudar a credencial exige token
+                   // como qualquer outro endpoint mutante.
+                   if (wifi_.mode() != WifiMode::Ap && !authOk(request)) {
+                       sendError(request, 401, "token invalido");
+                       return;
+                   }
                    const char *ssid = body["ssid"] | "";
                    const char *pass = body["password"] | "";
                    if (!wifi_.provision(ssid, pass)) {
                        sendError(request, 400, "ssid obrigatorio");
                        return;
                    }
-                   // A máquina reinicia logo em seguida para entrar na rede.
-                   request->send(200, kJson, "{\"ok\":true,\"rebooting\":true}");
+                   // A máquina reinicia logo em seguida para entrar na rede. Devolve
+                   // o token para o app guardar e usar nas próximas chamadas.
+                   char buf[96];
+                   snprintf(buf, sizeof(buf), "{\"ok\":true,\"rebooting\":true,\"token\":\"%s\"}",
+                            authToken_);
+                   request->send(200, kJson, buf);
                });
 
     server_.on("/api/wifi/forget", HTTP_POST, [this](AsyncWebServerRequest *request) {
+        if (!authOk(request)) {
+            sendError(request, 401, "token invalido");
+            return;
+        }
         wifi_.forget();
         request->send(200, kJson, "{\"ok\":true,\"rebooting\":true}");
     });
 
     server_.on("/api/factory-reset", HTTP_POST, [this](AsyncWebServerRequest *request) {
+        if (!authOk(request)) {
+            sendError(request, 401, "token invalido");
+            return;
+        }
         nvs_.factoryReset();
         request->send(200, kJson, "{\"ok\":true,\"rebooting\":true}");
         wifi_.forget();

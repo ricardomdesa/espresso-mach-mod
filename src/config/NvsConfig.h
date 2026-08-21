@@ -42,7 +42,17 @@ public:
     void loadProfilesJson(char *out, size_t outLen);
     void saveProfilesJson(const char *json);
 
-    // Restaura tudo para os valores de fábrica (inclusive Wi-Fi).
+    // Contador monotônico persistido para IDs de perfil: millis() reinicia a
+    // cada boot e colidiria com IDs já usados, quebrando PUT/DELETE por ID.
+    uint32_t nextProfileId();
+
+    // --- Autenticação da API (endpoints que mudam estado) ---
+    // Token aleatório de 32 hex chars, gerado uma vez no primeiro boot e
+    // persistido. Copia o token (existente ou recém-gerado) para `out`.
+    static constexpr size_t kAuthTokenLen = 32;
+    void loadOrCreateAuthToken(char *out, size_t outLen);
+
+    // Restaura tudo para os valores de fábrica (inclusive Wi-Fi e o token).
     void factoryReset();
 
 private:

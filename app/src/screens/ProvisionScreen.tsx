@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMachine } from '../context/MachineContext'
 import { WiFiNetwork } from '../api/types'
@@ -7,7 +7,7 @@ import { discoverMachine } from '../utils/discovery'
 type Phase = 'form' | 'sending' | 'waiting' | 'done'
 
 const ProvisionScreen: React.FC = () => {
-  const { api, connect, disconnect } = useMachine()
+  const { api, connect, disconnect, setToken } = useMachine()
   const navigate = useNavigate()
 
   const [networks, setNetworks] = useState<WiFiNetwork[]>([])
@@ -16,6 +16,13 @@ const ProvisionScreen: React.FC = () => {
   const [password, setPassword] = useState('')
   const [phase, setPhase] = useState<Phase>('form')
   const [error, setError] = useState<string | null>(null)
+  const mountedRef = useRef(true)
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   const scan = useCallback(async () => {
     if (!api) return
@@ -28,6 +35,7 @@ const ProvisionScreen: React.FC = () => {
     let lastError: unknown = null
     try {
       for (let i = 0; i < 12; i++) {
+        if (!mountedRef.current) return
         try {
           const result = await api.scanWiFi()
           lastError = null
@@ -36,6 +44,7 @@ const ProvisionScreen: React.FC = () => {
           for (const n of [...result.networks].sort((a, b) => b.rssi - a.rssi)) {
             if (!unique.has(n.ssid)) unique.set(n.ssid, n)
           }
+          if (!mountedRef.current) return
           setNetworks([...unique.values()])
           if (!result.scanning && unique.size > 0) return
         } catch (err) {
@@ -43,11 +52,11 @@ const ProvisionScreen: React.FC = () => {
         }
         await new Promise((r) => setTimeout(r, 1500))
       }
-      if (lastError) {
+      if (lastError && mountedRef.current) {
         setError(lastError instanceof Error ? lastError.message : String(lastError))
       }
     } finally {
-      setScanning(false)
+      if (mountedRef.current) setScanning(false)
     }
   }, [api])
 
@@ -64,7 +73,8 @@ const ProvisionScreen: React.FC = () => {
     setError(null)
     setPhase('sending')
     try {
-      await api.provisionWiFi(ssid.trim(), password)
+      const result = await api.provisionWiFi(ssid.trim(), password)
+      if (result?.token) setToken(result.token)
     } catch (err) {
       // A máquina derruba o AP logo após aceitar a credencial, então a
       // resposta pode nunca chegar. Isso não significa que falhou.
@@ -72,7 +82,9 @@ const ProvisionScreen: React.FC = () => {
     }
 
     // O AP morreu: o app perde a rede da máquina até o celular voltar ao Wi-Fi de casa.
-    disconnect()
+    // Precisa liberar o bind de rede aqui, senão o loop de retry abaixo continua
+    // preso ao Philco-Setup morto e nunca alcança a máquina na rede nova.
+    await disconnect()
     setPhase('waiting')
 
     // Tenta reencontrar a máquina já em modo STA.

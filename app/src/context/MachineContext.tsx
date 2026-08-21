@@ -3,13 +3,15 @@ import { Preferences } from '@capacitor/preferences'
 import { MachineStatus, WsFrame, WsEvent, ExtractionProfile } from '../api/types'
 import { createApiClient, ApiClient } from '../api/client'
 import { useWebSocket, ConnectionState } from '../ws/useWebSocket'
-import { bindToWifi } from '../native/networkBinder'
+import { bindToWifi, unbindFromWifi } from '../native/networkBinder'
 
 const BASE_URL_KEY = 'philco.baseUrl'
+const TOKEN_KEY = 'philco.token'
 
 interface MachineState {
   connected: boolean
   baseUrl: string | null
+  token: string | null
   status: MachineStatus | null
   currentFrame: WsFrame | null
   lastEvent: WsEvent | null
@@ -19,10 +21,12 @@ interface MachineState {
 type MachineAction =
   | { type: 'SET_CONNECTED'; payload: boolean }
   | { type: 'SET_BASE_URL'; payload: string | null }
+  | { type: 'SET_TOKEN'; payload: string | null }
   | { type: 'SET_STATUS'; payload: MachineStatus }
   | { type: 'SET_FRAME'; payload: WsFrame }
   | { type: 'SET_EVENT'; payload: WsEvent }
   | { type: 'SET_PROFILES'; payload: ExtractionProfile[] }
+  | { type: 'RESET' }
 
 function machineReducer(state: MachineState, action: MachineAction): MachineState {
   switch (action.type) {
@@ -30,6 +34,8 @@ function machineReducer(state: MachineState, action: MachineAction): MachineStat
       return { ...state, connected: action.payload }
     case 'SET_BASE_URL':
       return { ...state, baseUrl: action.payload }
+    case 'SET_TOKEN':
+      return { ...state, token: action.payload }
     case 'SET_STATUS':
       return { ...state, status: action.payload }
     case 'SET_FRAME':
@@ -38,6 +44,8 @@ function machineReducer(state: MachineState, action: MachineAction): MachineStat
       return { ...state, lastEvent: action.payload }
     case 'SET_PROFILES':
       return { ...state, profiles: action.payload }
+    case 'RESET':
+      return initialState
     default:
       return state
   }
@@ -48,9 +56,11 @@ interface MachineContextValue extends MachineState {
   /** Estado do streaming ao vivo. Independente de `connected` (que é REST). */
   wsState: ConnectionState
   connect: (baseUrl: string) => Promise<MachineStatus>
-  disconnect: () => void
+  disconnect: () => Promise<void>
   refreshStatus: () => Promise<void>
   refreshProfiles: () => Promise<void>
+  /** Guarda o token de autenticação (devolvido por /api/wifi/provision) para as próximas chamadas. */
+  setToken: (token: string) => void
 }
 
 const MachineContext = createContext<MachineContextValue | null>(null)
@@ -58,6 +68,7 @@ const MachineContext = createContext<MachineContextValue | null>(null)
 const initialState: MachineState = {
   connected: false,
   baseUrl: null,
+  token: null,
   status: null,
   currentFrame: null,
   lastEvent: null,
@@ -80,8 +91,8 @@ export const MachineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const { state: wsState, lastFrame, lastEvent } = useWebSocket(wsUrl)
 
   const api = useMemo(() => {
-    return state.baseUrl ? createApiClient(state.baseUrl) : null
-  }, [state.baseUrl])
+    return state.baseUrl ? createApiClient(state.baseUrl, state.token) : null
+  }, [state.baseUrl, state.token])
 
   const refreshStatus = useCallback(async () => {
     if (!api) return
@@ -111,18 +122,31 @@ export const MachineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // `connected` e liberamos as rotas; erro sobe para quem chamou mostrar.
   const connect = useCallback(async (baseUrl: string) => {
     const normalized = baseUrl.replace(/\/+$/, '')
-    const status = await createApiClient(normalized).getStatus()
+    // O token persiste entre reconexões (RESET limpa só o estado em memória);
+    // recarrega do storage para as chamadas mutantes continuarem autenticadas.
+    const { value: token } = await Preferences.get({ key: TOKEN_KEY })
+    const status = await createApiClient(normalized, token).getStatus()
     dispatch({ type: 'SET_BASE_URL', payload: normalized })
+    dispatch({ type: 'SET_TOKEN', payload: token ?? null })
     dispatch({ type: 'SET_STATUS', payload: status })
     dispatch({ type: 'SET_CONNECTED', payload: true })
     Preferences.set({ key: BASE_URL_KEY, value: normalized }).catch(() => {})
     return status
   }, [])
 
-  const disconnect = useCallback(() => {
-    dispatch({ type: 'SET_BASE_URL', payload: null })
-    dispatch({ type: 'SET_CONNECTED', payload: false })
+  const setToken = useCallback((token: string) => {
+    dispatch({ type: 'SET_TOKEN', payload: token })
+    Preferences.set({ key: TOKEN_KEY, value: token }).catch(() => {})
+  }, [])
+
+  // Limpa todo o estado da máquina (senão a UI mostra leituras/perfis
+  // congelados da conexão anterior) e libera o app da Wi-Fi anterior — do
+  // contrário ele fica preso à rede (ex.: o AP morto do Philco-Setup) e as
+  // próximas requisições nunca saem para a rede certa.
+  const disconnect = useCallback(async () => {
+    dispatch({ type: 'RESET' })
     Preferences.remove({ key: BASE_URL_KEY }).catch(() => {})
+    await unbindFromWifi()
   }, [])
 
   // Prende o app à Wi-Fi antes de qualquer requisição e reconecta sozinho no
@@ -149,8 +173,9 @@ export const MachineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       disconnect,
       refreshStatus,
       refreshProfiles,
+      setToken,
     }),
-    [state, api, wsState, connect, disconnect, refreshStatus, refreshProfiles],
+    [state, api, wsState, connect, disconnect, refreshStatus, refreshProfiles, setToken],
   )
 
   return <MachineContext.Provider value={value}>{children}</MachineContext.Provider>

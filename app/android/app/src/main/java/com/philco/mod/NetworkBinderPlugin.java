@@ -37,6 +37,17 @@ public class NetworkBinderPlugin extends Plugin {
     private ConnectivityManager connectivityManager;
     private ConnectivityManager.NetworkCallback callback;
 
+    /**
+     * Incrementado a cada unbind()/handleOnDestroy() (e a cada novo bind()).
+     * Um retry agendado só executa o rebind se ainda estiver na mesma geração;
+     * caso contrário, o plugin/activity já foi destruído ou um novo bind foi
+     * iniciado, e o Runnable atrasado vira um no-op.
+     */
+    private volatile int generation = 0;
+
+    /** Evita que onAvailable e onCapabilitiesChanged disparem retries em paralelo. */
+    private volatile boolean retryInFlight = false;
+
     @PluginMethod
     public void bind(PluginCall call) {
         final ConnectivityManager cm = manager();
@@ -46,6 +57,7 @@ public class NetworkBinderPlugin extends Plugin {
         }
 
         releaseCallback();
+        cancelPendingRetries();
 
         NetworkRequest request = new NetworkRequest.Builder()
                 .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
@@ -56,22 +68,32 @@ public class NetworkBinderPlugin extends Plugin {
             public void onAvailable(Network network) {
                 Log.i(TAG, "Wi-Fi disponivel: " + network + " caps="
                         + cm.getNetworkCapabilities(network));
-                bindWithRetry(cm, network, 5);
+                bindWithRetry(cm, network, 5, generation);
             }
 
             @Override
             public void onCapabilitiesChanged(Network network, NetworkCapabilities caps) {
                 // Uma rede sem internet só ganha as capacidades finais depois da
                 // sondagem do sistema; até lá o bind pode ser recusado.
-                if (cm.getBoundNetworkForProcess() == null) {
-                    bindWithRetry(cm, network, 3);
+                // Só inicia uma cadeia de retry se nenhuma já estiver em andamento
+                // (evita sobrepor com a cadeia de onAvailable quando há mais de
+                // uma rede Wi-Fi visível).
+                if (cm.getBoundNetworkForProcess() == null && !retryInFlight) {
+                    bindWithRetry(cm, network, 3, generation);
                 }
             }
 
             @Override
             public void onLost(Network network) {
-                Log.i(TAG, "Wi-Fi perdida, desfazendo o bind");
-                cm.bindProcessToNetwork(null);
+                // Só desfaz o bind se a rede perdida for a que está de fato
+                // vinculada ao processo; caso contrário seria derrubar um bind
+                // válido por causa de uma rede stale/irrelevante.
+                if (network.equals(cm.getBoundNetworkForProcess())) {
+                    Log.i(TAG, "Wi-Fi perdida, desfazendo o bind");
+                    cm.bindProcessToNetwork(null);
+                } else {
+                    Log.i(TAG, "Wi-Fi perdida (nao era a rede vinculada), ignorando: " + network);
+                }
             }
         };
 
@@ -124,6 +146,7 @@ public class NetworkBinderPlugin extends Plugin {
             cm.bindProcessToNetwork(null);
         }
         releaseCallback();
+        cancelPendingRetries();
         call.resolve();
     }
 
@@ -134,26 +157,50 @@ public class NetworkBinderPlugin extends Plugin {
             cm.bindProcessToNetwork(null);
         }
         releaseCallback();
+        cancelPendingRetries();
+    }
+
+    /**
+     * Invalida qualquer retry de bind agendado (via geração) e limpa o Handler,
+     * para que um Runnable atrasado não reative o bind depois que o plugin/
+     * activity já foi desfeito.
+     */
+    private void cancelPendingRetries() {
+        generation++;
+        retryInFlight = false;
+        handler.removeCallbacksAndMessages(null);
     }
 
     /**
      * O bind pode ser recusado enquanto o sistema ainda está validando a rede.
      * Tenta de novo algumas vezes antes de desistir.
+     *
+     * @param startGeneration geração do plugin no momento em que esta cadeia de
+     *                        retry começou; se um unbind()/handleOnDestroy() (ou
+     *                        um novo bind()) mudar a geração enquanto um retry
+     *                        está agendado, o Runnable atrasado vira um no-op.
      */
     private void bindWithRetry(final ConnectivityManager cm, final Network network,
-                              final int attemptsLeft) {
+                              final int attemptsLeft, final int startGeneration) {
+        if (startGeneration != generation) {
+            // Plugin desfeito ou um novo bind foi iniciado desde o agendamento.
+            return;
+        }
+        retryInFlight = true;
         if (cm.bindProcessToNetwork(network)) {
             Log.i(TAG, "bind do processo OK em " + network);
+            retryInFlight = false;
             return;
         }
         if (attemptsLeft <= 0) {
             Log.w(TAG, "bind do processo falhou em " + network);
+            retryInFlight = false;
             return;
         }
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                bindWithRetry(cm, network, attemptsLeft - 1);
+                bindWithRetry(cm, network, attemptsLeft - 1, startGeneration);
             }
         }, 400);
     }

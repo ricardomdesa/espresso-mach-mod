@@ -154,9 +154,12 @@ void loop() {
         }
     }
 
-    handleSetupHold(display, button, wifi, screenManager);
-
+    // screenManager.draw() faz clearDisplay() + display.display(): precisa
+    // rodar antes do hold, senão a barra de progresso desenhada por
+    // handleSetupHold() é apagada no próximo frame.
     screenManager.draw(display, model);
+
+    handleSetupHold(display, button, wifi, screenManager);
 
     // Rede: ambos são não-bloqueantes. O servidor HTTP/WS é assíncrono (roda
     // na task do AsyncTCP); aqui só publicamos o frame de streaming e

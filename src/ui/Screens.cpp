@@ -107,11 +107,13 @@ void drawScreenPairing(Adafruit_SSD1306 &display, const DisplayModel &model) {
     // Faixa amarela: título + indicador de AP.
     display.setTextSize(1);
     display.setCursor(0, 4);
-    display.print(F("PARING"));
+    display.print(F("PAIRING"));
     drawWifiIcon(display, NetworkStatus::ApActive);
 
     // Faixa azul: SSID e IP centralizados (sem alocação dinâmica).
-    display.setTextSize(2);
+    // textSize 1 (não 2): "Philco-Setup" em textSize 2 passa dos 128px de
+    // largura do OLED e o SSID sai cortado nas duas bordas.
+    display.setTextSize(1);
     int16_t x1, y1;
     uint16_t w, h;
     display.getTextBounds(AP_SSID, 0, 0, &x1, &y1, &w, &h);

@@ -151,6 +151,20 @@ void WifiProvisioner::requestScan() {
     scanRequested_ = true;
 }
 
+uint8_t WifiProvisioner::scanCount() const {
+    portENTER_CRITICAL(&scanMux_);
+    const uint8_t n = scanCount_;
+    portEXIT_CRITICAL(&scanMux_);
+    return n;
+}
+
+WifiProvisioner::ScanEntry WifiProvisioner::scanEntry(uint8_t i) const {
+    portENTER_CRITICAL(&scanMux_);
+    const ScanEntry e = scanResults_[i];
+    portEXIT_CRITICAL(&scanMux_);
+    return e;
+}
+
 void WifiProvisioner::scanNow() {
     scanRequested_ = false;
     scanning_ = true;
@@ -168,19 +182,31 @@ void WifiProvisioner::scanNow() {
         return;
     }
 
+    portENTER_CRITICAL(&scanMux_);
     scanCount_ = 0;
-    for (int16_t i = 0; i < n && scanCount_ < kMaxScanResults; i++) {
+    portEXIT_CRITICAL(&scanMux_);
+
+    // Entrada é montada fora do critical section (WiFi.SSID() aloca String) e
+    // só copiada para scanResults_/scanCount_ dentro do lock, para o handler
+    // de /api/wifi/scan (task do AsyncTCP) nunca ver um estado parcial.
+    uint8_t count = 0;
+    for (int16_t i = 0; i < n && count < kMaxScanResults; i++) {
         const String ssid = WiFi.SSID(i);
         if (ssid.isEmpty()) continue;
-        ScanEntry &e = scanResults_[scanCount_];
+        ScanEntry e;
         strncpy(e.ssid, ssid.c_str(), sizeof(e.ssid) - 1);
         e.ssid[sizeof(e.ssid) - 1] = '\0';
         e.rssi = static_cast<int8_t>(constrain(WiFi.RSSI(i), -128, 127));
         e.secure = WiFi.encryptionType(i) != WIFI_AUTH_OPEN;
-        scanCount_++;
+
+        portENTER_CRITICAL(&scanMux_);
+        scanResults_[count] = e;
+        count++;
+        scanCount_ = count;
+        portEXIT_CRITICAL(&scanMux_);
     }
     WiFi.scanDelete();
-    Serial.printf("[wifi] varredura concluida: %u redes\n", scanCount_);
+    Serial.printf("[wifi] varredura concluida: %u redes\n", count);
 }
 
 void WifiProvisioner::loop() {

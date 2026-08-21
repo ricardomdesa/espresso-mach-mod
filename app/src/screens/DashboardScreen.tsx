@@ -47,12 +47,19 @@ const DashboardScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const isExtractingRef = useRef(false)
   const sessionFramesRef = useRef<WsFrame[]>([])
+  // Se este componente monta com a extração já em andamento (ex.: navegou
+  // para fora e voltou no meio do shot), sessionFramesRef só tem o rabo da
+  // sessão — a média não pode ser cruzada com o timer cheio da máquina.
+  const sessionIncompleteRef = useRef(false)
 
   useEffect(() => {
     if (!currentFrame) return
 
     if (currentFrame.state === 'extracting') {
-      isExtractingRef.current = true
+      if (!isExtractingRef.current) {
+        isExtractingRef.current = true
+        sessionIncompleteRef.current = currentFrame.timer > 1
+      }
       sessionFramesRef.current.push(currentFrame)
       setChartData((prev) => {
         const next = [...prev, currentFrame]
@@ -63,7 +70,7 @@ const DashboardScreen: React.FC = () => {
     } else if (isExtractingRef.current) {
       isExtractingRef.current = false
       const frames = sessionFramesRef.current
-      if (frames.length > 0) {
+      if (frames.length > 0 && !sessionIncompleteRef.current) {
         const tempAvg = frames.reduce((s, f) => s + f.temp, 0) / frames.length
         const pressAvg = frames.reduce((s, f) => s + f.press, 0) / frames.length
         const last = frames[frames.length - 1]
@@ -77,6 +84,7 @@ const DashboardScreen: React.FC = () => {
         })
       }
       sessionFramesRef.current = []
+      sessionIncompleteRef.current = false
       // limpar grafico apos a extração
       setChartData([])
     }

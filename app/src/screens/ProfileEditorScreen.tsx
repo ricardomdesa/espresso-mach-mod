@@ -56,14 +56,20 @@ const ProfileEditorScreen: React.FC = () => {
   const [saving, setSaving] = useState(false)
   const [loadingProfile, setLoadingProfile] = useState(isEditing)
   const [notFound, setNotFound] = useState(false)
+  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     if (!isEditing || !id) return
     let cancelled = false
     setLoadingProfile(true)
-    refreshProfiles().finally(() => {
-      if (!cancelled) setLoadingProfile(false)
-    })
+    setLoadError(false)
+    refreshProfiles()
+      .catch(() => {
+        if (!cancelled) setLoadError(true)
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingProfile(false)
+      })
     return () => {
       cancelled = true
     }
@@ -77,10 +83,13 @@ const ProfileEditorScreen: React.FC = () => {
       const { id: _unused, ...rest } = existing
       setProfile(rest)
       setNotFound(false)
-    } else {
+    } else if (!loadError) {
+      // Só é "não encontrado" de fato quando o carregamento deu certo e o
+      // perfil simplesmente não está na lista — uma falha de rede não pode
+      // virar essa mensagem.
       setNotFound(true)
     }
-  }, [isEditing, id, profiles, loadingProfile])
+  }, [isEditing, id, profiles, loadingProfile, loadError])
 
   const updateStep = (index: number, field: keyof ProfileStep, value: number) => {
     setProfile((prev) => {
@@ -140,6 +149,25 @@ const ProfileEditorScreen: React.FC = () => {
     )
   }
 
+  if (loadError) {
+    return (
+      <Screen title="Editar Perfil" showNav={false}>
+        <div className="rounded-2xl border border-line bg-cream px-6 py-12 text-center shadow-card">
+          <div className="text-sm font-medium text-ink">Erro ao carregar perfil</div>
+          <p className="mt-1 text-sm text-muted">
+            Nao foi possivel falar com a maquina. Verifique a conexao e tente de novo.
+          </p>
+          <button
+            onClick={() => navigate('/profiles')}
+            className="mt-4 rounded-xl bg-mocha px-4 py-2.5 text-sm font-semibold text-cream active:bg-mocha-dark"
+          >
+            Voltar aos perfis
+          </button>
+        </div>
+      </Screen>
+    )
+  }
+
   if (notFound) {
     return (
       <Screen title="Editar Perfil" showNav={false}>
@@ -194,7 +222,7 @@ const ProfileEditorScreen: React.FC = () => {
           </label>
           <input
             type="text"
-            value={profile.description}
+            value={profile.description ?? ''}
             onChange={(e) => setProfile((p) => ({ ...p, description: e.target.value }))}
             className={inputClass}
             placeholder="Opcional"
