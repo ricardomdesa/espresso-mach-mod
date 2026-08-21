@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Preferences } from '@capacitor/preferences'
 import { ExtractionRecord } from '../api/types'
 
@@ -7,14 +7,20 @@ const HISTORY_KEY = 'philco_extraction_history'
 export function useLocalHistory() {
   const [records, setRecords] = useState<ExtractionRecord[]>([])
   const [loaded, setLoaded] = useState(false)
+  // Espelha `records` fora do estado do React para que add/remove/clear não
+  // precisem depender dele — mantém a identidade dessas funções estável
+  // entre renders (efeitos que dependem delas não disparam à toa).
+  const recordsRef = useRef<ExtractionRecord[]>([])
 
   const load = useCallback(async () => {
     const { value } = await Preferences.get({ key: HISTORY_KEY })
     if (value) {
       try {
         const parsed = JSON.parse(value) as ExtractionRecord[]
+        recordsRef.current = parsed
         setRecords(parsed)
       } catch {
+        recordsRef.current = []
         setRecords([])
       }
     }
@@ -26,6 +32,7 @@ export function useLocalHistory() {
   }, [load])
 
   const save = useCallback(async (newRecords: ExtractionRecord[]) => {
+    recordsRef.current = newRecords
     await Preferences.set({
       key: HISTORY_KEY,
       value: JSON.stringify(newRecords),
@@ -35,20 +42,20 @@ export function useLocalHistory() {
 
   const add = useCallback(
     async (record: ExtractionRecord) => {
-      const updated = [record, ...records]
+      const updated = [record, ...recordsRef.current]
       // manter no max 500 registros
       const trimmed = updated.slice(0, 500)
       await save(trimmed)
     },
-    [records, save],
+    [save],
   )
 
   const remove = useCallback(
     async (id: string) => {
-      const updated = records.filter((r) => r.id !== id)
+      const updated = recordsRef.current.filter((r) => r.id !== id)
       await save(updated)
     },
-    [records, save],
+    [save],
   )
 
   const clear = useCallback(async () => {

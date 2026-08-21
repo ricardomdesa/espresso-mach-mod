@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A máquina (ESP32) só fala HTTP/WS em texto claro na rede local.
+  O cleartext fica restrito ao domain-config abaixo, cobrindo apenas o
+  hostname mDNS e o IP fixo do modo AP usados para falar com ela
+  (ver app/src/utils/discovery.ts) — não é liberado globalmente.
+-->
+<network-security-config>
+    <base-config>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">philco.local</domain>
+        <domain includeSubdomains="false">192.168.4.1</domain>
+    </domain-config>
+</network-security-config>

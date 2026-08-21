@@ -2,19 +2,22 @@ import React from 'react'
 import { useMachine } from '../context/MachineContext'
 
 const ConnectionBadge: React.FC = () => {
-  const { connected } = useMachine()
+  const { connected, wsState } = useMachine()
+
+  // `connected` só prova que o REST respondeu uma vez; o streaming ao vivo
+  // (wsState) é que garante que as leituras na tela não estão congeladas.
+  const live = connected && wsState === 'open'
 
   return (
-    <div className="flex items-center gap-2">
+    <div
+      className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+        live ? 'bg-herb/10 text-herb' : 'bg-brick/10 text-brick'
+      }`}
+    >
       <span
-        className="inline-block h-3 w-3 rounded-full"
-        style={{
-          backgroundColor: connected ? 'var(--color-success)' : 'var(--color-danger)',
-        }}
+        className={`inline-block h-2 w-2 rounded-full ${live ? 'bg-herb' : 'bg-brick'}`}
       />
-      <span className="text-sm text-neutral-400">
-        {connected ? 'Conectado' : 'Desconectado'}
-      </span>
+      {live ? 'Conectado' : 'Offline'}
     </div>
   )
 }

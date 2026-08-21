@@ -10,6 +10,7 @@ import {
   Legend,
 } from 'recharts'
 import { WsFrame } from '../api/types'
+import { chartColors } from '../theme'
 
 interface LiveChartProps {
   data: WsFrame[]
@@ -17,28 +18,53 @@ interface LiveChartProps {
 
 const LiveChart: React.FC<LiveChartProps> = ({ data }) => {
   return (
-    <div className="h-64 w-full rounded-lg bg-neutral-800 p-2">
+    <div className="h-56 w-full rounded-2xl border border-line bg-cream p-2 shadow-card">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#404040" />
+        <LineChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: -12 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
           <XAxis
             dataKey="t"
-            tickFormatter={(v: number) => `${(v / 1000).toFixed(1)}s`}
-            stroke="#a3a3a3"
+            tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}s`}
+            stroke={chartColors.axis}
+            tick={{ fontSize: 11 }}
+            tickLine={false}
           />
-          <YAxis yAxisId="temp" orientation="left" stroke="#f59e0b" domain={[80, 100]} />
-          <YAxis yAxisId="press" orientation="right" stroke="#22c55e" domain={[0, 12]} />
+          <YAxis
+            yAxisId="temp"
+            orientation="left"
+            stroke={chartColors.temp}
+            domain={[80, 100]}
+            tick={{ fontSize: 11 }}
+            tickLine={false}
+            width={38}
+          />
+          <YAxis
+            yAxisId="press"
+            orientation="right"
+            stroke={chartColors.press}
+            domain={[0, 12]}
+            tick={{ fontSize: 11 }}
+            tickLine={false}
+            width={30}
+          />
           <Tooltip
-            contentStyle={{ backgroundColor: '#262626', border: '1px solid #404040' }}
+            contentStyle={{
+              backgroundColor: chartColors.tooltipBg,
+              border: `1px solid ${chartColors.tooltipBorder}`,
+              borderRadius: 12,
+              color: chartColors.tooltipText,
+              fontSize: 12,
+            }}
             labelFormatter={(v: number) => `Tempo: ${(v / 1000).toFixed(1)}s`}
           />
-          <Legend />
+          <Legend wrapperStyle={{ fontSize: 12, color: chartColors.axis }} />
           <Line
             yAxisId="temp"
             type="monotone"
             dataKey="temp"
-            name="Temperatura (°C)"
-            stroke="#f59e0b"
+            name="Temperatura"
+            stroke={chartColors.temp}
+            strokeWidth={2}
             dot={false}
             isAnimationActive={false}
           />
@@ -46,8 +72,9 @@ const LiveChart: React.FC<LiveChartProps> = ({ data }) => {
             yAxisId="press"
             type="monotone"
             dataKey="press"
-            name="Pressao (bar)"
-            stroke="#22c55e"
+            name="Pressao"
+            stroke={chartColors.press}
+            strokeWidth={2}
             dot={false}
             isAnimationActive={false}
           />

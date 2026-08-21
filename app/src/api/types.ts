@@ -1,5 +1,11 @@
 export type MachineState = 'idle' | 'heating' | 'extracting' | 'error'
 
+export interface PIDParams {
+  kp: number
+  ki: number
+  kd: number
+}
+
 export interface MachineStatus {
   temp: number
   press: number
@@ -9,13 +15,20 @@ export interface MachineStatus {
   state: MachineState
   profile: string | null
   uptime: number
-  wifiMode: 'ap' | 'sta'
+  wifiMode: 'ap' | 'sta' | 'offline'
+  pid: PIDParams
 }
 
-export interface PIDParams {
-  kp: number
-  ki: number
-  kd: number
+export interface WiFiNetwork {
+  ssid: string
+  rssi: number
+  secure: boolean
+}
+
+export interface WiFiScanResult {
+  /** Ainda varrendo: vale pedir de novo daqui a pouco. */
+  scanning: boolean
+  networks: WiFiNetwork[]
 }
 
 export interface ProfileStep {
