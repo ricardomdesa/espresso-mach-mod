@@ -8,7 +8,7 @@
 
 namespace {
 
-constexpr size_t kStatusJsonSize = 512;
+constexpr size_t kStatusJsonSize = 576;
 constexpr size_t kFrameJsonSize = 224;
 constexpr size_t kMaxBodyBytes = 4096;
 
@@ -113,12 +113,12 @@ void ApiServer::buildStatusJson(char *out, size_t outLen) const {
     snprintf(out, outLen,
              "{\"api\":%d,\"temp\":%.2f,\"press\":%.2f,\"tempSetpoint\":%.2f,"
              "\"pressSetpoint\":%.2f,\"timer\":%.1f,\"state\":\"%s\",\"profile\":%s,"
-             "\"uptime\":%lu,\"wifiMode\":\"%s\",\"ip\":\"%s\","
+             "\"led\":%s,\"uptime\":%lu,\"wifiMode\":\"%s\",\"ip\":\"%s\","
              "\"pid\":{\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f},\"heap\":%lu}",
              API_VERSION, model_.tempCurrent(), model_.pressureCurrent(),
              model_.tempSetpoint(), model_.pressureSetpoint(),
              model_.timer().elapsedMs() / 1000.0f, modeName(model_.mode()), profileField,
-             millis() / 1000UL, wifiMode,
+             model_.lightOn() ? "true" : "false", millis() / 1000UL, wifiMode,
              wifi_.ip().toString().c_str(), model_.pid().kp, model_.pid().ki, model_.pid().kd,
              (unsigned long)ESP.getFreeHeap());
 }
@@ -227,6 +227,22 @@ void ApiServer::registerRoutes() {
                    }
                    model_.setPressureSetpoint(v);
                    nvs_.savePressureSetpoint(v);
+                   sendStatus(request);
+               });
+
+    // LED de iluminação: mesmo estado que o botão direito alterna na Tela 1.
+    // Não é persistido (liga no boot), então não há escrita em NVS aqui.
+    onJsonBody(server_, "/api/led", HTTP_PUT,
+               [this](AsyncWebServerRequest *request, JsonVariantConst body) {
+                   if (!authOk(request)) {
+                       sendError(request, 401, "token invalido");
+                       return;
+                   }
+                   if (!body["on"].is<bool>()) {
+                       sendError(request, 400, "campo on ausente");
+                       return;
+                   }
+                   model_.setLightOn(body["on"].as<bool>());
                    sendStatus(request);
                });
 

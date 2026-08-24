@@ -49,6 +49,11 @@ public:
     const char *activeProfileId() const { return activeProfileId_; }
     void setActiveProfileId(const char *id);
 
+    // LED de iluminação: estado lógico da luz. O botão direito (Tela 1) e a API
+    // escrevem aqui; o main espelha no GPIO. Não é persistido — liga no boot.
+    bool lightOn() const { return lightOn_; }
+    void setLightOn(bool on) { lightOn_ = on; }
+
     // Rede (para o indicador do OLED). Preenchido pelo main, nunca pela UI.
     NetworkStatus networkStatus() const { return networkStatus_; }
     void setNetworkStatus(NetworkStatus s) { networkStatus_ = s; }
@@ -70,6 +75,8 @@ private:
     PidGains pid_{2.0f, 0.5f, 0.1f}; // defaults de fábrica
 
     char activeProfileId_[24] = {0};
+
+    bool lightOn_ = true; // ligado por padrão no boot
 
     NetworkStatus networkStatus_ = NetworkStatus::Offline;
 

@@ -50,6 +50,10 @@ export function createApiClient(baseUrl: string, token?: string | null) {
     setTempSetpoint: (temp: number) =>
       request<MachineStatus>(baseUrl, 'PUT', '/api/setpoint/temp', { temp }, token),
 
+    // LED de iluminação: mesmo estado que o botão direito alterna na máquina.
+    setLed: (on: boolean) =>
+      request<MachineStatus>(baseUrl, 'PUT', '/api/led', { on }, token),
+
     setPID: (params: PIDParams) =>
       request<MachineStatus>(baseUrl, 'PUT', '/api/pid', params, token),
 
