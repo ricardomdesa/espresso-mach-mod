@@ -33,9 +33,11 @@ void drawWifiIcon(Adafruit_SSD1306 &display, NetworkStatus status) {
     }
 }
 
-// Faixa amarela (y=0..15) do painel: setpoints, texto pequeno. Faixa azul
-// (y=16..63): valores atuais em destaque — nada de texto grande cruzando a
+// Faixa amarela (y=0..15) do painel: setpoint, texto pequeno. Faixa azul
+// (y=16..63): temperatura atual em destaque — nada de texto grande cruzando a
 // fronteira das duas cores (fica ilegível, ver achado de hardware).
+// Pressão foi removida do OLED (v1 é só controle de temperatura); ela segue no
+// JSON/status para o app, só não é desenhada aqui.
 void drawScreenReadings(Adafruit_SSD1306 &display, const DisplayModel &model) {
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
@@ -44,27 +46,20 @@ void drawScreenReadings(Adafruit_SSD1306 &display, const DisplayModel &model) {
     display.setCursor(0, 4);
     display.print(F("set "));
     display.print(model.tempSetpoint(), 1);
-    display.setCursor(70, 4);
-    display.print(F("set "));
-    display.print(model.pressureSetpoint(), 1);
+    display.print(F(" C"));
 
-    display.setTextSize(1);
-    display.setCursor(0, 16);
+    display.setCursor(0, 20);
     display.print(F("TEMP"));
-    display.setCursor(70, 16);
-    display.print(F("PRESSAO"));
 
-    display.setTextSize(2);
+    display.setTextSize(3);
     display.setCursor(0, 32);
     display.print(model.tempCurrent(), 1);
-    display.setCursor(70, 32);
-    display.print(model.pressureCurrent(), 1);
 
     drawWifiIcon(display, model.networkStatus());
     display.display();
 }
 
-// Faixa amarela (y=0..15) do painel: temp/pressão atuais, sempre visíveis
+// Faixa amarela (y=0..15) do painel: temperatura atual, sempre visível
 // mesmo na tela do cronômetro. Faixa azul (y=16..63): status + timer grande.
 void drawScreenTimer(Adafruit_SSD1306 &display, const DisplayModel &model) {
     char buf[12];
@@ -73,14 +68,11 @@ void drawScreenTimer(Adafruit_SSD1306 &display, const DisplayModel &model) {
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
 
-    // Faixa amarela: temp + pressão atuais.
+    // Faixa amarela: temp atual.
     display.setTextSize(1);
     display.setCursor(0, 4);
     display.print(model.tempCurrent(), 1);
     display.print(F(" C"));
-    display.setCursor(70, 4);
-    display.print(model.pressureCurrent(), 1);
-    display.print(F(" bar"));
 
     // Faixa azul: status + cronômetro em destaque.
     display.setCursor(52, 20);
@@ -92,6 +84,32 @@ void drawScreenTimer(Adafruit_SSD1306 &display, const DisplayModel &model) {
     display.getTextBounds(buf, 0, 0, &x1, &y1, &w, &h);
     display.setCursor((OLED_WIDTH - w) / 2, 34);
     display.print(buf);
+
+    drawWifiIcon(display, model.networkStatus());
+    display.display();
+}
+
+// Modo de ajuste de temperatura (hold de 5 s do botão direito). Setpoint
+// grande na faixa azul + dica dos botões na faixa amarela. O valor é editado
+// pelo main (esquerdo = -, direito = +) e salvo na NVS a cada mudança.
+void drawScreenTempSet(Adafruit_SSD1306 &display, const DisplayModel &model) {
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+
+    // Faixa amarela: título.
+    display.setTextSize(1);
+    display.setCursor(0, 4);
+    display.print(F("AJUSTE TEMP"));
+
+    // Faixa azul: setpoint em destaque.
+    display.setTextSize(3);
+    display.setCursor(0, 30);
+    display.print(model.tempSetpoint(), 1);
+    display.print(F("C"));
+
+    display.setTextSize(1);
+    display.setCursor(0, 56);
+    display.print(F("<-  -0.5    +0.5  ->"));
 
     drawWifiIcon(display, model.networkStatus());
     display.display();

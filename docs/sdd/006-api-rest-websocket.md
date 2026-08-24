@@ -118,7 +118,8 @@ O épico 5 entrega a rede (AP/STA, mDNS, `GET /api/status`), mas o app ainda nã
 - `POST /api/wifi/forget` — apaga a credencial e volta ao modo AP.
 - `POST /api/factory-reset` — limpa a NVS inteira.
 - `PUT /api/setpoint/pressure` — simetria com o setpoint de temperatura.
-- O status ganhou `api` (versão do contrato, N4), `ip` e `heap` (diagnóstico).
+- `PUT /api/led` — liga/desliga o LED de iluminação (mesmo estado do botão direito na Tela 1). Não é persistido: liga no boot.
+- O status ganhou `api` (versão do contrato, N4), `led` (LED de iluminação), `ip` e `heap` (diagnóstico).
 - **CORS:** a WebView do app roda em `http://localhost`, então toda chamada à máquina é cross-origin. O servidor responde `Access-Control-Allow-Origin: *` e trata o preflight `OPTIONS`.
 
 ## 6. Estrutura de Código
@@ -142,8 +143,9 @@ src/
 
 | Método | Rota | Corpo | Resposta |
 |--------|------|-------|----------|
-| GET | `/api/status` | — | JSON completo (temp, pressão, setpoints, PID, perfil ativo, uptime, modo wifi) |
+| GET | `/api/status` | — | JSON completo (temp, pressão, setpoints, PID, perfil ativo, LED, uptime, modo wifi) |
 | PUT | `/api/setpoint/temp` | `{"temp": 92.5}` | 200 + novo estado |
+| PUT | `/api/led` | `{"on": true}` | 200 + novo estado |
 | PUT | `/api/pid` | `{"kp":..,"ki":..,"kd":..}` | 200 + novo estado |
 | POST | `/api/extraction/start` | — | 200 + estado |
 | POST | `/api/extraction/stop` | — | 200 + estado |
