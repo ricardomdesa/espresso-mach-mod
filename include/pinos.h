@@ -13,3 +13,16 @@
 #define OLED_WIDTH 128
 #define OLED_HEIGHT 64
 #define OLED_ADDR 0x3C // scanner ajusta em runtime se necessário (0x3D alternativo)
+
+// Reservados para o hardware real de controle de temperatura (termopar +
+// atuador de aquecimento). Soldados desde já para não precisar reabrir a
+// máquina quando o sensor/relé chegarem; ainda sem driver no firmware
+// (SensorFake segue em uso até a integração).
+#define PIN_THERMO_SCK 5 // GPIO5 — SPI SCK do amplificador do termopar (MAX6675/31855)
+#define PIN_THERMO_SO 6  // GPIO6 — SPI SO/MISO do amplificador (leitura)
+#define PIN_THERMO_CS 7  // GPIO7 — SPI CS do amplificador
+// GPIO10 -> entrada "+" do SSR GN 84136121 (25A, entrada DC 3,5-32V), "-" no
+// GND comum. Datasheet pede min. 3,5V e o GPIO só dá 3,3V — ACIONAMENTO A
+// VALIDAR EM BANCADA antes de confiar nisso com a carga real. Se não acionar
+// direto, precisa de estágio driver (transistor/MOSFET) alimentado em 5V.
+#define PIN_ACTUATOR 10 // GPIO10 — sinal "+" do SSR de aquecimento (ativo HIGH, a confirmar)
