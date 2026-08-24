@@ -63,7 +63,7 @@ private:
     ISensor &pressureSensor_;
 
     float tempCurrent_ = 0.0f;
-    float tempSetpoint_ = 93.0f;    // default de fábrica; NVS sobrescreve
+    float tempSetpoint_ = 90.0f;    // default de fábrica; NVS sobrescreve
     float pressureCurrent_ = 0.0f;
     float pressureSetpoint_ = 9.0f; // default de fábrica; NVS sobrescreve
 
