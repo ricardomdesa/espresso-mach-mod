@@ -37,9 +37,9 @@
 // GPIO0 -> entrada de sinal do módulo de relé que aciona a bomba (liga/
 // desliga). No ESP32-C3 o GPIO0 não é strapping pin (só serve de XTAL_32K_P,
 // que não usamos), então fica livre como saída digital.
-// ATENÇÃO ao nível ativo: muitos módulos de relé são acionados em LOW. Aqui
-// tratamos como ativo HIGH (PUMP_ACTIVE) — inverter PUMP_ACTIVE/PUMP_IDLE se
-// o módulo usado for active-low.
-#define PIN_PUMP 0       // GPIO0 — sinal do relé da bomba
-#define PUMP_ACTIVE HIGH // nível que liga a bomba
-#define PUMP_IDLE LOW    // nível que desliga a bomba
+// O módulo de relé desta placa é ACTIVE-LOW: nível 0 fecha o relé (liga a
+// bomba), nível 1 abre (desliga). GPIO0 tem pull-up interno no boot, então o
+// relé fica desligado até o firmware assumir o pino.
+#define PIN_PUMP 0      // GPIO0 — sinal do relé da bomba
+#define PUMP_ACTIVE LOW // nível que liga a bomba (módulo active-low)
+#define PUMP_IDLE HIGH  // nível que desliga a bomba

@@ -65,7 +65,11 @@ void setup() {
     pinMode(PIN_LED, OUTPUT);
     digitalWrite(PIN_LED, model.lightOn() ? HIGH : LOW);
 
-    // Relé da bomba: desligado no boot.
+    // Relé da bomba (módulo active-low): desligado no boot. Escreve o nível
+    // IDLE ANTES do pinMode — no ESP32-C3 o latch de saída nasce em 0, e como
+    // 0 = PUMP_ACTIVE isso daria um pulso curto no relé ao trocar o pino para
+    // OUTPUT. Pré-setar o latch evita o clique.
+    digitalWrite(PIN_PUMP, PUMP_IDLE);
     pinMode(PIN_PUMP, OUTPUT);
     digitalWrite(PIN_PUMP, PUMP_IDLE);
 

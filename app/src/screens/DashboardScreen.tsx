@@ -197,7 +197,9 @@ const DashboardScreen: React.FC = () => {
         <ControlToggle
           label="Bomba"
           on={!!status?.pump}
-          disabled={!connected}
+          // Firmware recusa /api/pump em modo AP (HTTP 409): durante o scan de
+          // redes o loop fica bloqueado e o rele so seria espelhado depois.
+          disabled={!connected || status?.wifiMode === 'ap'}
           onToggle={() => runControl(() => setPump(!status?.pump))}
         />
       </div>
@@ -218,7 +220,8 @@ const DashboardScreen: React.FC = () => {
       {/* Start/stop */}
       <button
         onClick={handleToggleExtraction}
-        disabled={!connected}
+        // Firmware recusa start em modo AP (409); stop continua liberado.
+        disabled={!connected || (status?.wifiMode === 'ap' && !isExtracting)}
         className={`w-full rounded-2xl py-5 text-base font-bold uppercase tracking-wide text-cream shadow-raised transition-colors disabled:opacity-40 disabled:shadow-none ${
           isExtracting ? 'bg-brick active:bg-brick/90' : 'bg-mocha active:bg-mocha-dark'
         }`}

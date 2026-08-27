@@ -256,6 +256,15 @@ void ApiServer::registerRoutes() {
                        sendError(request, 401, "token invalido");
                        return;
                    }
+                   // Em modo AP (provisionamento) o loop principal fica bloqueado
+                   // durante WiFi.scanNetworks(), então o GPIO da bomba só é
+                   // espelhado depois que o scan termina — um "desligar" ficaria
+                   // pendente por segundos. Provisionamento não é modo operacional:
+                   // recusa qualquer acionamento da bomba aqui.
+                   if (wifi_.mode() == WifiMode::Ap) {
+                       sendError(request, 409, "bomba indisponivel em modo de configuracao");
+                       return;
+                   }
                    if (!body["on"].is<bool>()) {
                        sendError(request, 400, "campo on ausente");
                        return;
@@ -290,6 +299,12 @@ void ApiServer::registerRoutes() {
     server_.on("/api/extraction/start", HTTP_POST, [this](AsyncWebServerRequest *request) {
         if (!authOk(request)) {
             sendError(request, 401, "token invalido");
+            return;
+        }
+        // Start liga a bomba; mesmo motivo do /api/pump — em modo AP o espelho
+        // do GPIO fica preso atrás do scan síncrono. Stop continua liberado.
+        if (wifi_.mode() == WifiMode::Ap) {
+            sendError(request, 409, "extracao indisponivel em modo de configuracao");
             return;
         }
         model_.timer().reset();

@@ -11,9 +11,12 @@ ao que está descrito abaixo:
   onboard (GPIO8, ativo LOW)** pisca a cada 2 s para sinalizar "setup"; o LED de
   iluminação não é afetado.
 - **GPIO10:** continua sinal do SSR de aquecimento.
-- **GPIO0:** relé de acionamento da bomba (liga/desliga). Controlado pelo app —
-  manualmente (`PUT /api/pump`) ou pelo ciclo de extração (start liga, stop
-  desliga).
+- **GPIO0:** relé de acionamento da bomba (liga/desliga), módulo **active-low**
+  (`PUMP_ACTIVE = LOW`). Controlado pelo app — manualmente (`PUT /api/pump`) ou
+  pelo ciclo de extração (start liga, stop desliga). Em **modo AP** o firmware
+  recusa `PUT /api/pump` e `extraction/start` com **HTTP 409**: durante o
+  `WiFi.scanNetworks()` síncrono o loop fica bloqueado e o relé só seria
+  espelhado depois do scan. `extraction/stop` continua liberado.
 - **LED de iluminação (GPIO20):** ligado/desligado pelo app (`PUT /api/led`) ou
   pelo clique curto do botão. Não persistido — **ligado no boot**.
 
