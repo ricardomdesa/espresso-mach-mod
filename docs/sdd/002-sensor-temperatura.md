@@ -1,6 +1,6 @@
 # SDD-002 — Épico 2: Sensor de Temperatura
 
-- **Status:** Pendente (não implementado)
+- **Status:** Implementado (firmware). `SensorMax6675` (adapter, throttle 250 ms, trata `NAN`/valor absurdo mantendo o último válido, expõe `msSinceLastValidRead()` p/ o failsafe do PID) + `SensorCalibrated` (decorator offset/ganho, consts em `include/calibracao.h`). `main.cpp` usa `SensorCalibrated(SensorMax6675)` no lugar do `SensorFake` de temperatura; pressão continua fake. Pinos: `PIN_THERMO_SCK=5`, `PIN_THERMO_SO=6`, `PIN_THERMO_CS=7` (`include/pinos.h`). Lib: `adafruit/MAX6675 library`. **Pendente:** validação em hardware com o termopar e ajuste fino de `TEMP_CAL_OFFSET`/`TEMP_CAL_GAIN` contra termômetro de referência.
 - **Épico:** 2 de 4 (MVP)
 - **Pré-requisitos:** Épico 1 concluído (`DisplayModel`, `ISensor`, estrutura de firmware)
 - **Hardware alvo:** ESP32-C3 Super Mini, módulo MAX6675 (SPI), termopar tipo K
