@@ -14,8 +14,10 @@ export interface MachineStatus {
   timer: number
   state: MachineState
   profile: string | null
-  /** LED de iluminação ligado. Não é persistido: liga no boot da máquina. */
+  /** LED de iluminação ligado. Não é persistido: ligado no boot da máquina. */
   led: boolean
+  /** Relé da bomba ligado. Não é persistido: desligado no boot da máquina. */
+  pump: boolean
   uptime: number
   wifiMode: 'ap' | 'sta' | 'offline'
   pid: PIDParams

@@ -19,15 +19,8 @@ struct PidGains {
     float kd;
 };
 
-// Estado de rede exibido no OLED (sem depender da pilha de rede na UI).
-enum class NetworkStatus : uint8_t {
-    Offline,      // sem conexão: máquina offline ou aguardando hold do botão
-    StaConnected, // STA conectado na rede do usuário (normal)
-    ApActive,     // modo de configuração (AP no ar)
-};
-
-// Fonte única de dados da UI. Épicos 2-4 alimentam este model; a UI nunca
-// lê sensores diretamente (N1).
+// Fonte única de dados da máquina. Épicos 2-4 alimentam este model; a API e o
+// main leem daqui, nunca dos sensores diretamente (N1).
 class DisplayModel {
 public:
     DisplayModel(ISensor &tempSensor, ISensor &pressureSensor);
@@ -49,14 +42,17 @@ public:
     const char *activeProfileId() const { return activeProfileId_; }
     void setActiveProfileId(const char *id);
 
-    // LED de iluminação: estado lógico da luz. O botão direito (Tela 1) e a API
-    // escrevem aqui; o main espelha no GPIO. Não é persistido — liga no boot.
+    // LED de iluminação: estado lógico da luz. O clique curto do botão físico e
+    // a API (PUT /api/led) escrevem aqui; o main espelha no GPIO. Não é
+    // persistido — ligado no boot.
     bool lightOn() const { return lightOn_; }
     void setLightOn(bool on) { lightOn_ = on; }
 
-    // Rede (para o indicador do OLED). Preenchido pelo main, nunca pela UI.
-    NetworkStatus networkStatus() const { return networkStatus_; }
-    void setNetworkStatus(NetworkStatus s) { networkStatus_ = s; }
+    // Bomba: estado lógico do relé (GPIO0). A API escreve aqui — manualmente
+    // (PUT /api/pump) ou pelo ciclo de extração (start liga, stop desliga); o
+    // main espelha no GPIO. Não é persistido — desligada no boot.
+    bool pumpOn() const { return pumpOn_; }
+    void setPumpOn(bool on) { pumpOn_ = on; }
 
     MachineMode mode() const;
 
@@ -76,9 +72,8 @@ private:
 
     char activeProfileId_[24] = {0};
 
-    bool lightOn_ = true; // ligado por padrão no boot
-
-    NetworkStatus networkStatus_ = NetworkStatus::Offline;
+    bool lightOn_ = true;  // ligado no boot; app/botão alternam depois
+    bool pumpOn_ = false;  // relé da bomba; desligado no boot
 
     Timer timer_;
 };

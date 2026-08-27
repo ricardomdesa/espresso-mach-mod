@@ -1,5 +1,25 @@
 # Philco Espresso Mod — Arquitetura
 
+## Revisão de hardware (2026-08) — sem OLED
+
+O display OLED SSD1306 queimou e foi **removido do projeto**. Mudanças em relação
+ao que está descrito abaixo:
+
+- **Sem display.** Nenhuma UI local; toda visualização/config é pelo app.
+- **1 push button (GPIO3).** Clique curto: liga/desliga o LED de iluminação
+  (GPIO20). Hold de **5 s**: sobe o AP de configuração. Em modo AP o **LED azul
+  onboard (GPIO8, ativo LOW)** pisca a cada 2 s para sinalizar "setup"; o LED de
+  iluminação não é afetado.
+- **GPIO10:** continua sinal do SSR de aquecimento.
+- **GPIO0:** relé de acionamento da bomba (liga/desliga). Controlado pelo app —
+  manualmente (`PUT /api/pump`) ou pelo ciclo de extração (start liga, stop
+  desliga).
+- **LED de iluminação (GPIO20):** ligado/desligado pelo app (`PUT /api/led`) ou
+  pelo clique curto do botão. Não persistido — **ligado no boot**.
+
+As seções abaixo mantêm o texto original (OLED, 2 botões, hold de 10 s) como
+histórico; onde divergirem desta revisão, esta revisão prevalece.
+
 ## Visão Geral
 
 Cafeteira Philco Espresso modificada com ESP32: controle PID de temperatura (caldeira) e controle de pressão/vazão da bomba (profiling). Sistema dividido em duas camadas de interface:

@@ -10,6 +10,14 @@ namespace {
 constexpr unsigned long kSwitchDelayMs = 800;
 // Intervalo mínimo entre re-varreduras pedidas pelo app.
 constexpr unsigned long kScanRetryMs = 3000;
+
+// Potência de TX do rádio. No padrão (~20 dBm) os picos de corrente do
+// handshake de autenticação derrubam a conexão nesta placa (ESP32-C3 Super
+// Mini alimentada por USB) — sintoma: STA nunca associa (reason=2 AUTH_EXPIRE)
+// e o softAP larga o cliente antes do DHCP fechar. Limitar a ~8,5 dBm resolve;
+// perto do roteador o alcance sobra. Para alcance total, alimentar 5 V externo
+// de qualidade e subir este valor.
+constexpr wifi_power_t kWifiTxPower = WIFI_POWER_8_5dBm;
 } // namespace
 
 void onWifiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
@@ -26,6 +34,13 @@ void WifiProvisioner::begin() {
     WiFi.persistent(false); // a credencial é nossa, guardada na NVS do app
     WiFi.setAutoReconnect(true);
     WiFi.onEvent(onWifiEvent);
+
+    // Inicializa a pilha de rede JÁ AQUI. Sem credencial salva e sem AP, o
+    // fluxo offline nunca chamava WiFi.mode(), então esp_netif/tcpip ficava
+    // sem inicializar e ApiServer::begin() estourava em lwip
+    // ("assert failed: tcpip_api_call ... Invalid mbox"). startSta()/startAp()
+    // ajustam o modo depois; em offline fica STA ocioso (sem WiFi.begin()).
+    WiFi.mode(WIFI_STA);
 
     // Hold do botão pediu o modo de configuração: sobe o AP direto, mesmo
     // com credencial salva. Flag one-shot (lida e limpa aqui).
@@ -50,13 +65,15 @@ void WifiProvisioner::begin() {
     }
 
     // Sem AP automático no boot (segurança, regra do usuário): sem credencial
-    // válida a máquina fica offline — o AP só abre com hold de 10 s na tela
-    // inicial (requestAp()). O firmware MVP segue funcionando normalmente.
+    // válida a máquina fica offline — o AP só abre com hold de 5 s do botão
+    // físico (requestAp()). O firmware MVP segue funcionando normalmente.
 }
 
 bool WifiProvisioner::startSta(const char *ssid, const char *password) {
     WiFi.softAPdisconnect(true);
     WiFi.mode(WIFI_STA);
+    WiFi.setSleep(false);
+    WiFi.setTxPower(kWifiTxPower); // ver comentário em kWifiTxPower
     WiFi.setHostname(MDNS_HOSTNAME);
     WiFi.begin(ssid, (password != nullptr && password[0] != '\0') ? password : nullptr);
 
@@ -84,13 +101,11 @@ bool WifiProvisioner::startSta(const char *ssid, const char *password) {
 
 void WifiProvisioner::startAp() {
     WiFi.disconnect(true);
-    // AP_STA (e não AP puro): o rádio precisa da interface STA ativa para
-    // varrer as redes do usuário em GET /api/wifi/scan.
+    WiFi.setSleep(false); // sem modem sleep: estabilidade de associação/DHCP
+    // AP_STA: mantém a interface STA para o app pedir varredura de redes
+    // (sob demanda no loop()). Sem varredura aqui — só sobe o AP.
     WiFi.mode(WIFI_AP_STA);
-
-    // Varre ANTES de subir o AP: sem softAP no ar a varredura funciona, e o
-    // resultado já fica em cache para a primeira consulta do app.
-    scanNow();
+    WiFi.setTxPower(kWifiTxPower); // ver comentário em kWifiTxPower
 
     const bool ok = WiFi.softAP(AP_SSID, AP_PASSWORD, AP_CHANNEL, false, AP_MAX_CLIENTS);
     mode_ = WifiMode::Ap;
@@ -101,7 +116,6 @@ void WifiProvisioner::startAp() {
     Serial.print(F("[wifi] modo configuracao. SSID: " AP_SSID " IP: "));
     Serial.println(WiFi.softAPIP());
     startMdns(); // permite achar philco.local já no modo AP
-
 }
 
 void WifiProvisioner::startMdns() {

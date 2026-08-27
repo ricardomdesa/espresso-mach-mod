@@ -113,12 +113,13 @@ void ApiServer::buildStatusJson(char *out, size_t outLen) const {
     snprintf(out, outLen,
              "{\"api\":%d,\"temp\":%.2f,\"press\":%.2f,\"tempSetpoint\":%.2f,"
              "\"pressSetpoint\":%.2f,\"timer\":%.1f,\"state\":\"%s\",\"profile\":%s,"
-             "\"led\":%s,\"uptime\":%lu,\"wifiMode\":\"%s\",\"ip\":\"%s\","
+             "\"led\":%s,\"pump\":%s,\"uptime\":%lu,\"wifiMode\":\"%s\",\"ip\":\"%s\","
              "\"pid\":{\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f},\"heap\":%lu}",
              API_VERSION, model_.tempCurrent(), model_.pressureCurrent(),
              model_.tempSetpoint(), model_.pressureSetpoint(),
              model_.timer().elapsedMs() / 1000.0f, modeName(model_.mode()), profileField,
-             model_.lightOn() ? "true" : "false", millis() / 1000UL, wifiMode,
+             model_.lightOn() ? "true" : "false", model_.pumpOn() ? "true" : "false",
+             millis() / 1000UL, wifiMode,
              wifi_.ip().toString().c_str(), model_.pid().kp, model_.pid().ki, model_.pid().kd,
              (unsigned long)ESP.getFreeHeap());
 }
@@ -230,8 +231,9 @@ void ApiServer::registerRoutes() {
                    sendStatus(request);
                });
 
-    // LED de iluminação: mesmo estado que o botão direito alterna na Tela 1.
-    // Não é persistido (liga no boot), então não há escrita em NVS aqui.
+    // LED de iluminação: mesmo estado que o clique curto do botão físico
+    // alterna. Não é persistido (desligado no boot), então não há escrita em
+    // NVS aqui.
     onJsonBody(server_, "/api/led", HTTP_PUT,
                [this](AsyncWebServerRequest *request, JsonVariantConst body) {
                    if (!authOk(request)) {
@@ -243,6 +245,22 @@ void ApiServer::registerRoutes() {
                        return;
                    }
                    model_.setLightOn(body["on"].as<bool>());
+                   sendStatus(request);
+               });
+
+    // Bomba (relé GPIO0): acionamento manual pelo app. O ciclo de extração
+    // também mexe aqui (start liga, stop desliga). Não é persistido.
+    onJsonBody(server_, "/api/pump", HTTP_PUT,
+               [this](AsyncWebServerRequest *request, JsonVariantConst body) {
+                   if (!authOk(request)) {
+                       sendError(request, 401, "token invalido");
+                       return;
+                   }
+                   if (!body["on"].is<bool>()) {
+                       sendError(request, 400, "campo on ausente");
+                       return;
+                   }
+                   model_.setPumpOn(body["on"].as<bool>());
                    sendStatus(request);
                });
 
@@ -276,6 +294,7 @@ void ApiServer::registerRoutes() {
         }
         model_.timer().reset();
         model_.timer().start();
+        model_.setPumpOn(true); // extração liga a bomba (manual ou por perfil)
         broadcastEvent("extraction_started");
         sendStatus(request);
     });
@@ -286,6 +305,7 @@ void ApiServer::registerRoutes() {
             return;
         }
         model_.timer().stop();
+        model_.setPumpOn(false); // fim da extração desliga a bomba
         broadcastEvent("extraction_stopped");
         sendStatus(request);
     });
@@ -446,7 +466,7 @@ void ApiServer::registerRoutes() {
     onJsonBody(server_, "/api/wifi/provision", HTTP_POST,
                [this](AsyncWebServerRequest *request, JsonVariantConst body) {
                    // Exceção ao gate de token: enquanto o AP de configuração está
-                   // no ar (só sobe via hold de 10s no botão físico — segurança já
+                   // no ar (só sobe via hold de 5s no botão físico — segurança já
                    // garantida por isso), é este endpoint que entrega o token pela
                    // primeira vez. Em modo STA, mudar a credencial exige token
                    // como qualquer outro endpoint mutante.
