@@ -50,9 +50,13 @@ export function createApiClient(baseUrl: string, token?: string | null) {
     setTempSetpoint: (temp: number) =>
       request<MachineStatus>(baseUrl, 'PUT', '/api/setpoint/temp', { temp }, token),
 
-    // LED de iluminação: mesmo estado que o botão direito alterna na máquina.
+    // LED de iluminação: mesmo estado que o clique curto do botão alterna na máquina.
     setLed: (on: boolean) =>
       request<MachineStatus>(baseUrl, 'PUT', '/api/led', { on }, token),
+
+    // Bomba (relé): acionamento manual. O ciclo de extração também liga/desliga.
+    setPump: (on: boolean) =>
+      request<MachineStatus>(baseUrl, 'PUT', '/api/pump', { on }, token),
 
     setPID: (params: PIDParams) =>
       request<MachineStatus>(baseUrl, 'PUT', '/api/pid', params, token),

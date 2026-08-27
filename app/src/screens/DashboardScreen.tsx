@@ -37,10 +37,40 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, target, accent }) => 
   </div>
 )
 
+interface ControlToggleProps {
+  label: string
+  on: boolean
+  disabled: boolean
+  onToggle: () => void
+}
+
+const ControlToggle: React.FC<ControlToggleProps> = ({ label, on, disabled, onToggle }) => (
+  <button
+    onClick={onToggle}
+    disabled={disabled}
+    className={`flex items-center justify-between rounded-2xl border p-4 text-left shadow-card transition-colors disabled:opacity-40 ${
+      on ? 'border-mocha bg-mocha/10' : 'border-line bg-cream'
+    }`}
+  >
+    <span className="text-xs font-medium uppercase tracking-wide text-muted">{label}</span>
+    <span
+      className={`ml-2 inline-flex h-6 w-11 shrink-0 items-center rounded-full px-0.5 transition-colors ${
+        on ? 'bg-mocha' : 'bg-line'
+      }`}
+    >
+      <span
+        className={`h-5 w-5 rounded-full bg-cream shadow transition-transform ${
+          on ? 'translate-x-5' : 'translate-x-0'
+        }`}
+      />
+    </span>
+  </button>
+)
+
 const DashboardScreen: React.FC = () => {
   const { currentFrame, status, connected, lastEvent } = useMachine()
   const { temp, pressure } = useFormatters()
-  const { startExtraction, stopExtraction } = useMachineApi()
+  const { startExtraction, stopExtraction, setLed, setPump } = useMachineApi()
   const { add: addHistoryRecord } = useLocalHistory()
 
   const [chartData, setChartData] = useState<WsFrame[]>([])
@@ -89,6 +119,15 @@ const DashboardScreen: React.FC = () => {
       setChartData([])
     }
   }, [currentFrame, addHistoryRecord])
+
+  const runControl = async (fn: () => Promise<unknown>) => {
+    setError(null)
+    try {
+      await fn()
+    } catch (e) {
+      setError('Erro ao enviar comando: ' + (e as Error).message)
+    }
+  }
 
   const handleToggleExtraction = async () => {
     setError(null)
@@ -147,6 +186,24 @@ const DashboardScreen: React.FC = () => {
         </span>
       </div>
 
+      {/* Controles diretos: iluminacao e bomba (rele) */}
+      <div className="mb-3 grid grid-cols-2 gap-3">
+        <ControlToggle
+          label="Iluminacao"
+          on={!!status?.led}
+          disabled={!connected}
+          onToggle={() => runControl(() => setLed(!status?.led))}
+        />
+        <ControlToggle
+          label="Bomba"
+          on={!!status?.pump}
+          // Firmware recusa /api/pump em modo AP (HTTP 409): durante o scan de
+          // redes o loop fica bloqueado e o rele so seria espelhado depois.
+          disabled={!connected || status?.wifiMode === 'ap'}
+          onToggle={() => runControl(() => setPump(!status?.pump))}
+        />
+      </div>
+
       {/* Grafico ao vivo */}
       {chartData.length > 0 && (
         <div className="mb-3">
@@ -163,7 +220,8 @@ const DashboardScreen: React.FC = () => {
       {/* Start/stop */}
       <button
         onClick={handleToggleExtraction}
-        disabled={!connected}
+        // Firmware recusa start em modo AP (409); stop continua liberado.
+        disabled={!connected || (status?.wifiMode === 'ap' && !isExtracting)}
         className={`w-full rounded-2xl py-5 text-base font-bold uppercase tracking-wide text-cream shadow-raised transition-colors disabled:opacity-40 disabled:shadow-none ${
           isExtracting ? 'bg-brick active:bg-brick/90' : 'bg-mocha active:bg-mocha-dark'
         }`}

@@ -177,8 +177,8 @@ const SetupScreen: React.FC = () => {
         <div className="mt-6 space-y-2 text-xs leading-relaxed text-muted">
           <p>
             <strong className="font-semibold text-ink">Primeira vez?</strong> Na maquina,
-            segure o botao por <strong className="font-semibold text-ink">10 segundos</strong>{' '}
-            na tela inicial — ela liga o modo{' '}
+            segure o botao por <strong className="font-semibold text-ink">5 segundos</strong>{' '}
+            — o LED comeca a piscar e ela liga o modo{' '}
             <code className="rounded bg-foam px-1.5 py-0.5 font-medium text-ink">
               Philco-Setup
             </code>

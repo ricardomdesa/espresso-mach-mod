@@ -3,8 +3,8 @@
 // Parâmetros de rede do firmware (épicos 5 e 6).
 //
 // Fluxo (segurança, regra do usuário): o AP NÃO sobe sozinho — nem no boot,
-// nem por perda de conexão. Ele só entra no ar com hold de 10 s do botão na
-// tela inicial (WifiProvisioner::requestAp), que seta uma flag one-shot na
+// nem por perda de conexão. Ele só entra no ar com hold de 5 s do botão
+// físico (WifiProvisioner::requestAp), que seta uma flag one-shot na
 // NVS e reinicia; o boot lê a flag e sobe o AP. O AP existe SÓ para receber
 // a credencial da rede do usuário: assim que ela chega (POST /api/wifi/
 // provision), a credencial vai para a NVS, o AP cai e o ESP32 entra na rede

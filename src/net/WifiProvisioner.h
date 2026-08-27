@@ -24,8 +24,8 @@ public:
     // Lê a credencial da NVS e tenta STA; sem credencial fica offline (sem AP).
     void begin();
 
-    // Chamar no loop: monitora a conexão STA. Só o hold do botão na tela
-    // inicial abre o AP (segurança, veja requestAp()).
+    // Chamar no loop: monitora a conexão STA. Só o hold do botão físico
+    // abre o AP (segurança, veja requestAp()).
     void loop();
 
     WifiMode mode() const { return mode_; }
@@ -42,8 +42,8 @@ public:
     // Apaga a credencial e volta para o modo AP no próximo `loop()`.
     void forget();
 
-    // Segurança (regra do usuário): o AP só entra no ar via hold de 10 s do
-    // botão na tela inicial. Este método seta uma flag one-shot na NVS e
+    // Segurança (regra do usuário): o AP só entra no ar via hold de 5 s do
+    // botão físico. Este método seta uma flag one-shot na NVS e
     // reinicia — o boot lê a flag e sobe o AP direto (mesmo com credencial
     // salva), sem risco de re-conectar na STA no meio do caminho.
     void requestAp();
