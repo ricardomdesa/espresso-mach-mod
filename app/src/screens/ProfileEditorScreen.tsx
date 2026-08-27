@@ -3,44 +3,48 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ExtractionProfile, ProfileStep } from '../api/types'
 import { useMachine } from '../context/MachineContext'
 import { useMachineApi } from '../hooks/useMachineApi'
-import { validateProfile } from '../utils/validators'
+import {
+  validateProfile,
+  PROFILE_TEMP_MIN,
+  PROFILE_TEMP_MAX,
+} from '../utils/validators'
 import Screen from '../components/Screen'
 import { chartColors } from '../theme'
 
 const emptyProfile: Omit<ExtractionProfile, 'id'> = {
   name: '',
   description: '',
-  steps: [{ time_s: 0, pressure_bar: 0 }],
+  temperature_c: 92,
+  steps: [{ seconds: 3, pump: true }],
 }
 
-const MAX_PRESSURE_BAR = 12
-
-/** Previa read-only da curva pressao x tempo montada pelos steps. */
-const CurvePreview: React.FC<{ steps: ProfileStep[] }> = ({ steps }) => {
-  const w = 300
-  const h = 96
-  const maxTime = Math.max(...steps.map((s) => s.time_s), 1)
-  const points = steps
-    .map((s) => {
-      const x = (s.time_s / maxTime) * w
-      const y = h - (Math.min(s.pressure_bar, MAX_PRESSURE_BAR) / MAX_PRESSURE_BAR) * h
-      return `${x.toFixed(1)},${y.toFixed(1)}`
-    })
-    .join(' ')
-
+/** Linha do tempo read-only: cada passo vira um segmento proporcional à duração;
+ *  preenchido = bomba ligada, vazado = bomba desligada. */
+const StepTimeline: React.FC<{ steps: ProfileStep[] }> = ({ steps }) => {
+  const total = Math.max(
+    steps.reduce((s, st) => s + (st.seconds > 0 ? st.seconds : 0), 0),
+    1,
+  )
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="h-24 w-full" preserveAspectRatio="none">
-      <line x1="0" y1={h / 2} x2={w} y2={h / 2} stroke={chartColors.grid} strokeWidth="1" />
-      <polyline
-        points={points}
-        fill="none"
-        stroke={chartColors.press}
-        strokeWidth="2"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
+    <div>
+      <div className="flex h-10 w-full overflow-hidden rounded-lg border border-line">
+        {steps.map((st, i) => (
+          <div
+            key={i}
+            className="h-full border-r border-cream/60 last:border-r-0"
+            style={{
+              width: `${((st.seconds > 0 ? st.seconds : 0) / total) * 100}%`,
+              backgroundColor: st.pump ? chartColors.temp : 'transparent',
+            }}
+            title={`Passo ${i + 1}: ${st.pump ? 'bomba ligada' : 'bomba desligada'} por ${st.seconds}s`}
+          />
+        ))}
+      </div>
+      <div className="mt-1 flex justify-between text-xs text-muted">
+        <span>0s</span>
+        <span>{total.toFixed(0)}s total</span>
+      </div>
+    </div>
   )
 }
 
@@ -81,7 +85,20 @@ const ProfileEditorScreen: React.FC = () => {
     const existing = profiles.find((p) => p.id === id)
     if (existing) {
       const { id: _unused, ...rest } = existing
-      setProfile(rest)
+      // Perfis antigos (curva de pressão) não têm os campos novos; completa com
+      // defaults para o editor não quebrar.
+      setProfile({
+        name: rest.name ?? '',
+        description: rest.description ?? '',
+        temperature_c: rest.temperature_c ?? emptyProfile.temperature_c,
+        steps:
+          Array.isArray(rest.steps) && rest.steps.length > 0
+            ? rest.steps.map((s) => ({
+                seconds: typeof s.seconds === 'number' ? s.seconds : 1,
+                pump: typeof s.pump === 'boolean' ? s.pump : true,
+              }))
+            : emptyProfile.steps,
+      })
       setNotFound(false)
     } else if (!loadError) {
       // Só é "não encontrado" de fato quando o carregamento deu certo e o
@@ -91,10 +108,10 @@ const ProfileEditorScreen: React.FC = () => {
     }
   }, [isEditing, id, profiles, loadingProfile, loadError])
 
-  const updateStep = (index: number, field: keyof ProfileStep, value: number) => {
+  const updateStep = (index: number, patch: Partial<ProfileStep>) => {
     setProfile((prev) => {
       const steps = [...prev.steps]
-      steps[index] = { ...steps[index], [field]: value }
+      steps[index] = { ...steps[index], ...patch }
       return { ...prev, steps }
     })
   }
@@ -104,10 +121,9 @@ const ProfileEditorScreen: React.FC = () => {
       ...prev,
       steps: [
         ...prev.steps,
-        {
-          time_s: (prev.steps[prev.steps.length - 1]?.time_s ?? 0) + 1,
-          pressure_bar: 0,
-        },
+        // Alterna o estado da bomba em relação ao último passo (padrão de
+        // pré-infusão: liga / desliga / liga).
+        { seconds: 5, pump: !(prev.steps[prev.steps.length - 1]?.pump ?? false) },
       ],
     }))
   }
@@ -230,24 +246,49 @@ const ProfileEditorScreen: React.FC = () => {
         </div>
       </div>
 
-      {/* Previa da curva */}
+      {/* Temperatura alvo (vira setpoint ao iniciar) */}
       <div className="mt-5 rounded-2xl border border-line bg-cream p-4 shadow-card">
         <div className="mb-2 flex items-baseline justify-between">
           <span className="text-xs font-medium uppercase tracking-wide text-muted">
-            Curva de pressao
+            Temperatura alvo
           </span>
-          <span className="text-xs text-muted">0-{MAX_PRESSURE_BAR} bar</span>
+          <span className="text-xs text-muted">
+            {PROFILE_TEMP_MIN}-{PROFILE_TEMP_MAX} °C
+          </span>
         </div>
-        <CurvePreview steps={profile.steps} />
+        <div className="flex items-baseline gap-2">
+          <input
+            type="number"
+            inputMode="decimal"
+            min={PROFILE_TEMP_MIN}
+            max={PROFILE_TEMP_MAX}
+            step={0.5}
+            value={profile.temperature_c}
+            onChange={(e) =>
+              setProfile((p) => ({ ...p, temperature_c: parseFloat(e.target.value) || 0 }))
+            }
+            className="tabular-live w-24 rounded-lg border border-line bg-latte px-2 py-1.5 text-sm text-ink outline-none focus:border-mocha"
+          />
+          <span className="text-sm text-muted">°C</span>
+        </div>
+        <p className="mt-2 text-xs text-muted">
+          Ao iniciar, a maquina aquece ate esta temperatura e so entao roda os passos.
+        </p>
+      </div>
+
+      {/* Prévia da sequência */}
+      <div className="mt-5 rounded-2xl border border-line bg-cream p-4 shadow-card">
+        <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">
+          Sequencia da bomba
+        </div>
+        <StepTimeline steps={profile.steps} />
       </div>
 
       {/* Steps */}
       <div className="mt-5">
         <div className="mb-2 flex items-baseline justify-between">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted">
-            Steps
-          </span>
-          <span className="text-xs text-muted">tempo / pressao</span>
+          <span className="text-xs font-medium uppercase tracking-wide text-muted">Passos</span>
+          <span className="text-xs text-muted">duracao / bomba</span>
         </div>
 
         <div className="space-y-2">
@@ -262,32 +303,28 @@ const ProfileEditorScreen: React.FC = () => {
                   type="number"
                   inputMode="decimal"
                   min={0}
-                  step={0.1}
-                  value={step.time_s}
-                  onChange={(e) => updateStep(i, 'time_s', parseFloat(e.target.value) || 0)}
+                  step={0.5}
+                  value={step.seconds}
+                  onChange={(e) => updateStep(i, { seconds: parseFloat(e.target.value) || 0 })}
                   className="tabular-live w-16 rounded-lg border border-line bg-latte px-2 py-1.5 text-sm text-ink outline-none focus:border-mocha"
                 />
                 <span className="text-xs text-muted">s</span>
               </div>
-              <div className="flex items-center gap-1">
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  max={MAX_PRESSURE_BAR}
-                  step={0.1}
-                  value={step.pressure_bar}
-                  onChange={(e) =>
-                    updateStep(i, 'pressure_bar', parseFloat(e.target.value) || 0)
-                  }
-                  className="tabular-live w-16 rounded-lg border border-line bg-latte px-2 py-1.5 text-sm text-ink outline-none focus:border-mocha"
-                />
-                <span className="text-xs text-muted">bar</span>
-              </div>
+              <button
+                type="button"
+                onClick={() => updateStep(i, { pump: !step.pump })}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                  step.pump
+                    ? 'bg-mocha text-cream active:bg-mocha-dark'
+                    : 'bg-foam text-muted active:bg-line'
+                }`}
+              >
+                {step.pump ? 'Bomba ligada' : 'Bomba desligada'}
+              </button>
               {profile.steps.length > 1 && (
                 <button
                   onClick={() => removeStep(i)}
-                  aria-label={`Remover step ${i + 1}`}
+                  aria-label={`Remover passo ${i + 1}`}
                   className="ml-auto rounded-lg px-2 py-1 text-xs font-semibold text-brick active:bg-brick/10"
                 >
                   Remover
@@ -299,7 +336,7 @@ const ProfileEditorScreen: React.FC = () => {
             onClick={addStep}
             className="w-full rounded-xl border border-dashed border-line-strong py-2.5 text-sm font-medium text-muted active:bg-foam"
           >
-            + Adicionar step
+            + Adicionar passo
           </button>
         </div>
       </div>

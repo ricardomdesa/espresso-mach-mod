@@ -5,7 +5,7 @@ import Screen from '../components/Screen'
 
 const HistoryScreen: React.FC = () => {
   const { records, loaded, clear } = useLocalHistory()
-  const { temp, pressure, timer } = useFormatters()
+  const { temp, timer } = useFormatters()
 
   const handleClear = () => {
     if (!confirm('Apagar todo o historico de extracoes?')) return
@@ -51,7 +51,7 @@ const HistoryScreen: React.FC = () => {
                 </span>
               </div>
 
-              <div className="mt-3 grid grid-cols-3 gap-2 border-t border-line pt-3">
+              <div className="mt-3 grid grid-cols-2 gap-2 border-t border-line pt-3">
                 <div>
                   <div className="text-[11px] uppercase tracking-wide text-muted">Tempo</div>
                   <div className="tabular-live mt-0.5 text-sm font-semibold text-ink">
@@ -62,12 +62,6 @@ const HistoryScreen: React.FC = () => {
                   <div className="text-[11px] uppercase tracking-wide text-muted">Temp media</div>
                   <div className="tabular-live mt-0.5 text-sm font-semibold text-roast">
                     {temp(r.tempAvg)}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[11px] uppercase tracking-wide text-muted">Press media</div>
-                  <div className="tabular-live mt-0.5 text-sm font-semibold text-herb">
-                    {pressure(r.pressAvg)}
                   </div>
                 </div>
               </div>

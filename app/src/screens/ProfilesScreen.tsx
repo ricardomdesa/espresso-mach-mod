@@ -62,7 +62,7 @@ const ProfilesScreen: React.FC = () => {
         <div className="rounded-2xl border border-dashed border-line-strong bg-cream/60 px-6 py-12 text-center">
           <div className="text-sm font-medium text-ink">Nenhum perfil ainda</div>
           <p className="mt-1 text-sm text-muted">
-            Crie um perfil para controlar a curva de pressao da extracao.
+            Crie um perfil para automatizar a temperatura e a sequencia da bomba na extracao.
           </p>
           <button
             onClick={() => navigate('/profiles/new')}
@@ -96,7 +96,10 @@ const ProfilesScreen: React.FC = () => {
                     {p.description && (
                       <p className="mt-0.5 truncate text-sm text-muted">{p.description}</p>
                     )}
-                    <p className="mt-1 text-xs text-muted">{p.steps.length} step(s)</p>
+                    <p className="mt-1 text-xs text-muted">
+                      {typeof p.temperature_c === 'number' ? `${p.temperature_c} °C · ` : ''}
+                      {p.steps.length} passo(s)
+                    </p>
                   </div>
                 </div>
 

@@ -155,9 +155,30 @@ src/
 | DELETE | `/api/profiles/{id}` | — | 204 |
 | PUT | `/api/profiles/active` | `{"id":..}` | 200 + perfil ativo |
 
+#### Schema de perfil (Fase 1 — sem controle de pressão)
+
+```json
+{
+  "id": "p3",
+  "name": "Espresso Padrao",
+  "description": "opcional",
+  "temperature_c": 92.0,
+  "steps": [
+    { "seconds": 3,  "pump": true  },
+    { "seconds": 5,  "pump": false },
+    { "seconds": 25, "pump": true  }
+  ]
+}
+```
+
+- `temperature_c`: ao dar `POST /api/extraction/start` com este perfil ativo, vira o setpoint (persistido). A máquina entra em `preheating` (bomba desligada) até estabilizar na tolerância (±2 °C por 3 s, timeout 180 s) e só então roda os passos.
+- `steps`: sequência liga/desliga do relé da bomba, cada passo com duração em segundos. Ao fim do último passo a bomba desliga e o cronômetro para. `POST /api/extraction/stop` cancela em qualquer fase.
+- Sem perfil ativo (ou perfil sem `steps` válidos), `start` mantém o comportamento manual: bomba ligada direto.
+
 ### Contrato WebSocket (`/ws`)
 
 - **Server → client (streaming, 100 ms):** `{"t":<ms>,"temp":92.3,"press":8.7,"timer":23.4,"state":"extracting","profile":"espresso"}`
+- **`state`:** `idle` | `heating` | `preheating` (aquecendo p/ extração de perfil) | `extracting` | `error`
 - **Server → client (eventos):** `{"event":"extraction_started"}` / `{"event":"extraction_stopped"}` / `{"event":"error","msg":"..."}`
 - **Client → server:** `{"cmd":"ping"}` → `{"event":"pong"}` (keepalive)
 

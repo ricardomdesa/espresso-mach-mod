@@ -1,4 +1,4 @@
-export type MachineState = 'idle' | 'heating' | 'extracting' | 'error'
+export type MachineState = 'idle' | 'heating' | 'preheating' | 'extracting' | 'error'
 
 export interface PIDParams {
   kp: number
@@ -14,6 +14,8 @@ export interface MachineStatus {
   timer: number
   state: MachineState
   profile: string | null
+  /** IP da máquina na rede (LAN em modo STA, 192.168.4.1 em modo AP). Informativo. */
+  ip: string
   /** LED de iluminação ligado. Não é persistido: ligado no boot da máquina. */
   led: boolean
   /** Relé da bomba ligado. Não é persistido: desligado no boot da máquina. */
@@ -36,14 +38,19 @@ export interface WiFiScanResult {
 }
 
 export interface ProfileStep {
-  time_s: number
-  pressure_bar: number
+  /** Duração deste passo, em segundos. */
+  seconds: number
+  /** Estado do relé da bomba durante o passo. */
+  pump: boolean
 }
 
 export interface ExtractionProfile {
   id: string
   name: string
   description?: string
+  /** Temperatura alvo do perfil; vira o setpoint da máquina ao iniciar a extração. */
+  temperature_c: number
+  /** Sequência de passos liga/desliga da bomba (ex.: pré-infusão). */
   steps: ProfileStep[]
 }
 

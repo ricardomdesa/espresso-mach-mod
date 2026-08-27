@@ -7,19 +7,26 @@ export function validatePID(p: Partial<PIDParams>): string | null {
   return null
 }
 
+export const PROFILE_TEMP_MIN = 20
+export const PROFILE_TEMP_MAX = 130
+export const PROFILE_STEP_MAX_S = 600
+
 export function validateProfile(p: Partial<ExtractionProfile>): string | null {
   if (!p.name || p.name.trim().length === 0) return 'Nome obrigatorio'
-  if (!p.steps || p.steps.length === 0) return 'Perfil precisa de pelo menos 1 step'
+  if (
+    p.temperature_c === undefined ||
+    !isFinite(p.temperature_c) ||
+    p.temperature_c < PROFILE_TEMP_MIN ||
+    p.temperature_c > PROFILE_TEMP_MAX
+  ) {
+    return `Temperatura fora de ${PROFILE_TEMP_MIN}-${PROFILE_TEMP_MAX} °C`
+  }
+  if (!p.steps || p.steps.length === 0) return 'Perfil precisa de pelo menos 1 passo'
   for (let i = 0; i < p.steps.length; i++) {
     const s = p.steps[i]
-    if (s.time_s < 0) return `Step ${i + 1}: tempo negativo`
-    if (s.pressure_bar < 0 || s.pressure_bar > 12) return `Step ${i + 1}: pressao fora de 0-12 bar`
-  }
-  // Steps devem estar em ordem crescente de tempo
-  for (let i = 1; i < p.steps.length; i++) {
-    if (p.steps[i].time_s <= p.steps[i - 1].time_s) {
-      return `Step ${i + 1}: tempo deve ser maior que o anterior`
-    }
+    if (!isFinite(s.seconds) || s.seconds <= 0) return `Passo ${i + 1}: duracao deve ser maior que 0 s`
+    if (s.seconds > PROFILE_STEP_MAX_S) return `Passo ${i + 1}: duracao acima de ${PROFILE_STEP_MAX_S} s`
+    if (typeof s.pump !== 'boolean') return `Passo ${i + 1}: estado da bomba invalido`
   }
   return null
 }

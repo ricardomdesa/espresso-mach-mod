@@ -29,6 +29,9 @@ MachineMode DisplayModel::mode() const {
     if (timer_.isRunning()) {
         return MachineMode::Extracting;
     }
+    if (preheating_) {
+        return MachineMode::Preheating;
+    }
     if (fabsf(tempCurrent_ - tempSetpoint_) > kTempToleranceC) {
         return MachineMode::Heating;
     }

@@ -11,6 +11,7 @@ import { MachineState, WsFrame } from '../api/types'
 const stateLabel: Record<MachineState, string> = {
   idle: 'Ocioso',
   heating: 'Aquecendo',
+  preheating: 'Aquecendo p/ extracao',
   extracting: 'Extraindo',
   error: 'Erro',
 }
@@ -18,6 +19,7 @@ const stateLabel: Record<MachineState, string> = {
 const stateStyle: Record<MachineState, string> = {
   idle: 'bg-foam text-muted',
   heating: 'bg-roast/10 text-roast',
+  preheating: 'bg-roast/10 text-roast',
   extracting: 'bg-mocha/10 text-mocha',
   error: 'bg-brick/10 text-brick',
 }
@@ -68,8 +70,8 @@ const ControlToggle: React.FC<ControlToggleProps> = ({ label, on, disabled, onTo
 )
 
 const DashboardScreen: React.FC = () => {
-  const { currentFrame, status, connected, lastEvent } = useMachine()
-  const { temp, pressure } = useFormatters()
+  const { currentFrame, status, connected, lastEvent, profiles, refreshProfiles } = useMachine()
+  const { temp } = useFormatters()
   const { startExtraction, stopExtraction, setLed, setPump } = useMachineApi()
   const { add: addHistoryRecord } = useLocalHistory()
 
@@ -81,6 +83,15 @@ const DashboardScreen: React.FC = () => {
   // para fora e voltou no meio do shot), sessionFramesRef só tem o rabo da
   // sessão — a média não pode ser cruzada com o timer cheio da máquina.
   const sessionIncompleteRef = useRef(false)
+
+  // O frame/status trazem o ID do perfil ativo (ex.: "p3"); a tela mostra o nome.
+  useEffect(() => {
+    refreshProfiles().catch(() => {})
+  }, [refreshProfiles])
+
+  const activeProfileId = currentFrame?.profile ?? status?.profile ?? null
+  const activeProfileName =
+    profiles.find((p) => p.id === activeProfileId)?.name ?? activeProfileId
 
   useEffect(() => {
     if (!currentFrame) return
@@ -104,11 +115,13 @@ const DashboardScreen: React.FC = () => {
         const tempAvg = frames.reduce((s, f) => s + f.temp, 0) / frames.length
         const pressAvg = frames.reduce((s, f) => s + f.press, 0) / frames.length
         const last = frames[frames.length - 1]
+        const name =
+          profiles.find((p) => p.id === last.profile)?.name ?? last.profile ?? 'Sem perfil'
         addHistoryRecord({
           id: `${Date.now()}`,
           date: new Date().toISOString(),
           duration_s: last.timer,
-          profileName: last.profile ?? 'Sem perfil',
+          profileName: name,
           tempAvg,
           pressAvg,
         })
@@ -118,7 +131,7 @@ const DashboardScreen: React.FC = () => {
       // limpar grafico apos a extração
       setChartData([])
     }
-  }, [currentFrame, addHistoryRecord])
+  }, [currentFrame, addHistoryRecord, profiles])
 
   const runControl = async (fn: () => Promise<unknown>) => {
     setError(null)
@@ -129,10 +142,18 @@ const DashboardScreen: React.FC = () => {
     }
   }
 
+  const frame = currentFrame
+  const machineState: MachineState = frame?.state ?? 'idle'
+  const isExtracting = machineState === 'extracting'
+  // Enquanto aquece para a extração de um perfil a máquina ainda não está
+  // "extraindo", mas já há um ciclo em andamento — o botão vira "parar".
+  const isRunning = isExtracting || machineState === 'preheating'
+  const machineError = lastEvent?.event === 'error' ? lastEvent.msg : null
+
   const handleToggleExtraction = async () => {
     setError(null)
     try {
-      if (currentFrame?.state === 'extracting') {
+      if (isRunning) {
         await stopExtraction()
       } else {
         await startExtraction()
@@ -141,11 +162,6 @@ const DashboardScreen: React.FC = () => {
       setError('Erro ao enviar comando: ' + (e as Error).message)
     }
   }
-
-  const frame = currentFrame
-  const machineState: MachineState = frame?.state ?? 'idle'
-  const isExtracting = machineState === 'extracting'
-  const machineError = lastEvent?.event === 'error' ? lastEvent.msg : null
 
   return (
     <Screen title="Philco Mod" showConnection>
@@ -156,25 +172,19 @@ const DashboardScreen: React.FC = () => {
       )}
 
       {/* Leituras principais */}
-      <div className="mb-3 grid grid-cols-2 gap-3">
+      <div className="mb-3">
         <StatCard
           label="Temperatura"
           value={frame ? temp(frame.temp) : '--'}
           target={status ? temp(status.tempSetpoint) : '--'}
           accent="text-roast"
         />
-        <StatCard
-          label="Pressao"
-          value={frame ? pressure(frame.press) : '--'}
-          target={status ? pressure(status.pressSetpoint) : '--'}
-          accent="text-herb"
-        />
       </div>
 
       {/* Timer + estado (protagonista durante o shot) */}
       <div className="mb-3 rounded-2xl border border-line bg-cream p-6 text-center shadow-card">
         <div className="text-sm font-medium text-muted">
-          {frame?.profile ?? 'Sem perfil'}
+          {activeProfileName ?? 'Sem perfil'}
         </div>
         <div className="my-2">
           <TimerDisplay seconds={frame?.timer ?? 0} large />
@@ -221,12 +231,16 @@ const DashboardScreen: React.FC = () => {
       <button
         onClick={handleToggleExtraction}
         // Firmware recusa start em modo AP (409); stop continua liberado.
-        disabled={!connected || (status?.wifiMode === 'ap' && !isExtracting)}
+        disabled={!connected || (status?.wifiMode === 'ap' && !isRunning)}
         className={`w-full rounded-2xl py-5 text-base font-bold uppercase tracking-wide text-cream shadow-raised transition-colors disabled:opacity-40 disabled:shadow-none ${
-          isExtracting ? 'bg-brick active:bg-brick/90' : 'bg-mocha active:bg-mocha-dark'
+          isRunning ? 'bg-brick active:bg-brick/90' : 'bg-mocha active:bg-mocha-dark'
         }`}
       >
-        {isExtracting ? 'Parar extracao' : 'Iniciar extracao'}
+        {machineState === 'preheating'
+          ? 'Aquecendo... parar'
+          : isExtracting
+            ? 'Parar extracao'
+            : 'Iniciar extracao'}
       </button>
     </Screen>
   )

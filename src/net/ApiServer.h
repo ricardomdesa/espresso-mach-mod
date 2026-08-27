@@ -34,6 +34,36 @@ private:
 
     unsigned long lastStreamMs_ = 0;
 
+    // --- Executor de perfil de extração ---
+    // Ao iniciar a extração com um perfil ativo, a máquina aquece até a
+    // temperatura do perfil (fase Preheat) e só então roda a sequência de
+    // passos liga/desliga da bomba (fase Steps).
+    static constexpr uint8_t kMaxProfileSteps = 20;
+    static constexpr float kPreheatToleranceC = 2.0f;
+    static constexpr unsigned long kPreheatStableMs = 3000UL;
+    static constexpr unsigned long kPreheatTimeoutMs = 180000UL;
+
+    enum class RunPhase : uint8_t { Idle, Preheat, Steps };
+
+    struct ProfileRun {
+        RunPhase phase = RunPhase::Idle;
+        uint8_t count = 0;
+        uint8_t index = 0;
+        unsigned long phaseStartMs = 0; // início da fase Preheat (p/ timeout)
+        unsigned long stepStartMs = 0;  // início do passo corrente
+        unsigned long inBandSinceMs = 0; // 0 = fora da faixa de temperatura
+        uint16_t stepSeconds[kMaxProfileSteps] = {0};
+        bool stepPump[kMaxProfileSteps] = {false};
+    } run_;
+
+    // Tenta montar o executor a partir do perfil ativo. Devolve false se não há
+    // perfil utilizável (o chamador cai no start "manual": bomba ligada direto).
+    bool beginProfileRun();
+    // Avança o executor (chamado a cada loop()).
+    void serviceProfileRun();
+    // Encerra o ciclo (fim natural ou stop): bomba desligada, timer parado.
+    void endProfileRun(bool broadcastStopped);
+
     // Token de autenticação (gerado/persistido na NVS em begin()). Endpoints
     // que mudam estado exigem o header "X-Auth-Token" com este valor —
     // sem isso qualquer cliente na LAN poderia resetar/reconfigurar a máquina.
