@@ -4,6 +4,7 @@ import { useMachine } from './context/MachineContext'
 import SetupScreen from './screens/SetupScreen'
 import ProvisionScreen from './screens/ProvisionScreen'
 import DashboardScreen from './screens/DashboardScreen'
+import SteamScreen from './screens/SteamScreen'
 import ProfilesScreen from './screens/ProfilesScreen'
 import ProfileEditorScreen from './screens/ProfileEditorScreen'
 import SettingsScreen from './screens/SettingsScreen'
@@ -23,6 +24,10 @@ const App: React.FC = () => {
         <Route
           path="/"
           element={connected ? <DashboardScreen /> : <Navigate to="/setup" replace />}
+        />
+        <Route
+          path="/steam"
+          element={connected ? <SteamScreen /> : <Navigate to="/setup" replace />}
         />
         <Route
           path="/profiles"

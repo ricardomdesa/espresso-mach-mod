@@ -32,6 +32,15 @@ export function useMachineApi() {
     [api, refreshStatus],
   )
 
+  const setSteam = useCallback(
+    async (on: boolean) => {
+      if (!api) throw new Error('Not connected')
+      await api.setSteam(on)
+      await refreshStatus()
+    },
+    [api, refreshStatus],
+  )
+
   const setPID = useCallback(
     async (params: PIDParams) => {
       if (!api) throw new Error('Not connected')
@@ -93,6 +102,7 @@ export function useMachineApi() {
     setTemp,
     setLed,
     setPump,
+    setSteam,
     setPID,
     startExtraction,
     stopExtraction,

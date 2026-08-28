@@ -30,7 +30,7 @@ void PidController::update() {
         return;
     }
 
-    const float sp = model_.tempSetpoint();
+    const float sp = model_.tempTarget(); // TEMP_STEAM_C se vaporização ligada
     const PidGains g = model_.pid();
 
     const float error = sp - temp;

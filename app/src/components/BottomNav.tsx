@@ -23,6 +23,17 @@ const items: NavItem[] = [
     ),
   },
   {
+    to: '/steam',
+    label: 'Vapor',
+    icon: (
+      <svg className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+        <path d="M8 13c0-2 2-2.5 2-4.5S8 5 8 3" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M14 13c0-2 2-2.5 2-4.5S14 5 14 3" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M5 15h14v1a5 5 0 0 1-5 5h-4a5 5 0 0 1-5-5v-1Z" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
     to: '/profiles',
     label: 'Perfis',
     icon: (

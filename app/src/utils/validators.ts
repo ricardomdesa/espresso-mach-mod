@@ -8,7 +8,9 @@ export function validatePID(p: Partial<PIDParams>): string | null {
 }
 
 export const PROFILE_TEMP_MIN = 20
-export const PROFILE_TEMP_MAX = 130
+// Teto de segurança do firmware (TEMP_MAX_SAFETY_C): acima disto o PID força
+// duty 0 %, então um perfil não pode pedir mais que isso.
+export const PROFILE_TEMP_MAX = 115
 export const PROFILE_STEP_MAX_S = 600
 
 export function validateProfile(p: Partial<ExtractionProfile>): string | null {

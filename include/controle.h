@@ -23,7 +23,14 @@ constexpr unsigned long SENSOR_FAULT_TIMEOUT_MS = 10000UL;
 
 // Failsafe 2: teto de segurança. Acima disto o duty é forçado a 0%
 // independentemente do PID. O fusível físico da linha AC é a última camada.
-constexpr float TEMP_MAX_SAFETY_C = 130.0f;
+constexpr float TEMP_MAX_SAFETY_C = 115.0f;
+
+// Modo vaporização (app liga via PUT /api/steam {on:true}). Enquanto ativo o
+// PID mira TEMP_STEAM_C em vez do setpoint de café — sem gravar NVS. Ao
+// desligar, o firmware devolve o setpoint para TEMP_BREW_DEFAULT_C (decisão de
+// produto: "sempre volta pra 70", ver DisplayModel::tempSetpoint_).
+constexpr float TEMP_STEAM_C = 90.0f;
+constexpr float TEMP_BREW_DEFAULT_C = 70.0f;
 
 // Nível lógico que liga o SSR de aquecimento (ver pinos.h — a confirmar em bancada).
 #define ACTUATOR_ON HIGH
