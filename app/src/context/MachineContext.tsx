@@ -1,9 +1,19 @@
-import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react'
+import React, { createContext, useContext, useReducer, useCallback, useMemo, useRef } from 'react'
 import { Preferences } from '@capacitor/preferences'
 import { MachineStatus, WsFrame, WsEvent, ExtractionProfile } from '../api/types'
 import { createApiClient, ApiClient } from '../api/client'
 import { useWebSocket, ConnectionState } from '../ws/useWebSocket'
 import { bindToWifi, unbindFromWifi } from '../native/networkBinder'
+import {
+  StoredProfile,
+  PendingKind,
+  loadCache,
+  saveCache,
+  visibleProfiles,
+  pendingMap,
+  syncProfiles,
+  newLocalId,
+} from '../utils/profileStore'
 
 const BASE_URL_KEY = 'philco.baseUrl'
 const TOKEN_KEY = 'philco.token'
@@ -15,7 +25,7 @@ interface MachineState {
   status: MachineStatus | null
   currentFrame: WsFrame | null
   lastEvent: WsEvent | null
-  profiles: ExtractionProfile[]
+  profiles: StoredProfile[]
 }
 
 type MachineAction =
@@ -25,7 +35,7 @@ type MachineAction =
   | { type: 'SET_STATUS'; payload: MachineStatus }
   | { type: 'SET_FRAME'; payload: WsFrame }
   | { type: 'SET_EVENT'; payload: WsEvent }
-  | { type: 'SET_PROFILES'; payload: ExtractionProfile[] }
+  | { type: 'SET_PROFILES'; payload: StoredProfile[] }
   | { type: 'RESET' }
 
 function machineReducer(state: MachineState, action: MachineAction): MachineState {
@@ -51,14 +61,22 @@ function machineReducer(state: MachineState, action: MachineAction): MachineStat
   }
 }
 
-interface MachineContextValue extends MachineState {
+interface MachineContextValue extends Omit<MachineState, 'profiles'> {
   api: ApiClient | null
   /** Estado do streaming ao vivo. Independente de `connected` (que é REST). */
   wsState: ConnectionState
+  /** Perfis visíveis (esconde os que aguardam exclusão). Funciona offline via cache. */
+  profiles: ExtractionProfile[]
+  /** id do perfil -> tipo de mudança ainda não enviada à máquina. */
+  profilesPending: Record<string, PendingKind>
   connect: (baseUrl: string) => Promise<MachineStatus>
   disconnect: () => Promise<void>
   refreshStatus: () => Promise<void>
   refreshProfiles: () => Promise<void>
+  /** Cria (sem id) ou edita (com id) um perfil. Grava local e sincroniza se online. */
+  saveProfile: (profile: Omit<ExtractionProfile, 'id'>, id?: string) => Promise<void>
+  /** Remove um perfil. Local se offline; sincroniza ao reconectar. */
+  removeProfile: (id: string) => Promise<void>
   /** Guarda o token de autenticação (devolvido por /api/wifi/provision) para as próximas chamadas. */
   setToken: (token: string) => void
 }
@@ -100,11 +118,78 @@ export const MachineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     dispatch({ type: 'SET_STATUS', payload: status })
   }, [api])
 
+  // Uma sincronização por vez: evita que dois refresh concorrentes (efeito de
+  // conexão + mount de tela) reenviem a mesma criação pendente e dupliquem o
+  // perfil na máquina.
+  const syncingRef = useRef(false)
+  const runSync = useCallback(
+    async (cache: StoredProfile[]) => {
+      if (!api || syncingRef.current) return
+      syncingRef.current = true
+      try {
+        const synced = await syncProfiles(api, cache)
+        await saveCache(synced)
+        dispatch({ type: 'SET_PROFILES', payload: synced })
+      } finally {
+        syncingRef.current = false
+      }
+    },
+    [api],
+  )
+
+  // Offline: mostra o cache local. Online: empurra as pendências e recarrega
+  // a lista autoritativa da máquina.
   const refreshProfiles = useCallback(async () => {
-    if (!api) return
-    const profiles = await api.getProfiles()
-    dispatch({ type: 'SET_PROFILES', payload: profiles })
-  }, [api])
+    const cache = await loadCache()
+    dispatch({ type: 'SET_PROFILES', payload: cache })
+    await runSync(cache)
+  }, [runSync])
+
+  const saveProfile = useCallback(
+    async (profile: Omit<ExtractionProfile, 'id'>, id?: string) => {
+      const cache = await loadCache()
+      let next: StoredProfile[]
+      if (id && cache.some((p) => p.id === id)) {
+        next = cache.map((p) =>
+          p.id === id
+            ? {
+                ...profile,
+                id,
+                // Perfil ainda não criado na máquina continua como 'create'.
+                _pending: (p._pending === 'create' ? 'create' : 'update') as PendingKind,
+              }
+            : p,
+        )
+      } else if (id) {
+        // Edição de um perfil que só existia no servidor (cache ainda não o tinha).
+        next = [...cache, { ...profile, id, _pending: 'update' as PendingKind }]
+      } else {
+        next = [...cache, { ...profile, id: newLocalId(), _pending: 'create' as PendingKind }]
+      }
+      await saveCache(next)
+      dispatch({ type: 'SET_PROFILES', payload: next })
+      await runSync(next)
+    },
+    [runSync],
+  )
+
+  const removeProfile = useCallback(
+    async (id: string) => {
+      const cache = await loadCache()
+      const entry = cache.find((p) => p.id === id)
+      const next: StoredProfile[] =
+        !entry || entry._pending === 'create'
+          ? // Nunca chegou na máquina: só some do cache.
+            cache.filter((p) => p.id !== id)
+          : cache.map((p) =>
+              p.id === id ? { ...p, _pending: 'delete' as PendingKind } : p,
+            )
+      await saveCache(next)
+      dispatch({ type: 'SET_PROFILES', payload: next })
+      await runSync(next)
+    },
+    [runSync],
+  )
 
   React.useEffect(() => {
     if (lastFrame) {
@@ -156,7 +241,12 @@ export const MachineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     bindToWifi()
       .then(() => Preferences.get({ key: BASE_URL_KEY }))
       .then(({ value }) => {
-        if (!cancelled && value) connect(value).catch(() => {})
+        if (cancelled || !value) return
+        // Registra o endereço conhecido já aqui: libera as rotas que funcionam
+        // offline (dashboard/ajustes) mesmo que o connect abaixo falhe porque
+        // a máquina está desligada.
+        dispatch({ type: 'SET_BASE_URL', payload: value })
+        connect(value).catch(() => {})
       })
       .catch(() => {})
     return () => {
@@ -164,18 +254,43 @@ export const MachineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [connect])
 
+  // Carrega o cache local de perfis no boot e sincroniza assim que a máquina responder.
+  React.useEffect(() => {
+    refreshProfiles().catch(() => {})
+  }, [refreshProfiles])
+
+  const profilesView = useMemo(() => visibleProfiles(state.profiles), [state.profiles])
+  const profilesPending = useMemo(() => pendingMap(state.profiles), [state.profiles])
+
   const value = useMemo(
     () => ({
       ...state,
+      profiles: profilesView,
+      profilesPending,
       api,
       wsState,
       connect,
       disconnect,
       refreshStatus,
       refreshProfiles,
+      saveProfile,
+      removeProfile,
       setToken,
     }),
-    [state, api, wsState, connect, disconnect, refreshStatus, refreshProfiles, setToken],
+    [
+      state,
+      profilesView,
+      profilesPending,
+      api,
+      wsState,
+      connect,
+      disconnect,
+      refreshStatus,
+      refreshProfiles,
+      saveProfile,
+      removeProfile,
+      setToken,
+    ],
   )
 
   return <MachineContext.Provider value={value}>{children}</MachineContext.Provider>

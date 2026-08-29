@@ -9,7 +9,7 @@ import Screen from '../components/Screen'
 type Feedback = { kind: 'ok' | 'error'; msg: string } | null
 
 const SettingsScreen: React.FC = () => {
-  const { status } = useMachine()
+  const { status, connected } = useMachine()
   const { setTemp, setPID } = useMachineApi()
   const { tempUnit, setTempUnit } = useSettings()
 
@@ -50,12 +50,19 @@ const SettingsScreen: React.FC = () => {
   const cardClass = 'rounded-2xl border border-line bg-cream p-4 shadow-card'
   const sectionTitle = 'text-xs font-medium uppercase tracking-wide text-muted'
   const applyBtn =
-    'mt-4 w-full rounded-xl bg-mocha py-2.5 text-sm font-semibold text-cream active:bg-mocha-dark'
+    'mt-4 w-full rounded-xl bg-mocha py-2.5 text-sm font-semibold text-cream active:bg-mocha-dark disabled:opacity-40'
   const selectClass =
     'w-full rounded-xl border border-line bg-latte px-3 py-2.5 text-sm text-ink outline-none focus:border-mocha'
 
   return (
     <Screen title="Ajustes" showConnection>
+      {!connected && (
+        <div className="mb-4 rounded-xl border border-line bg-cream px-4 py-3 text-sm text-muted shadow-card">
+          Máquina offline. Você pode ver os ajustes, mas aplicar temperatura e
+          PID só funciona com ela conectada.
+        </div>
+      )}
+
       {/* Setpoint temperatura */}
       <div className={cardClass}>
         <div className={sectionTitle}>Temperatura alvo</div>
@@ -64,18 +71,18 @@ const SettingsScreen: React.FC = () => {
             {tempValue.toFixed(1)}
             <span className="ml-1 text-lg text-muted">°C</span>
           </span>
-          <span className="text-xs text-muted">80 - 100 °C</span>
+          <span className="text-xs text-muted">20 - 110 °C</span>
         </div>
         <input
           type="range"
-          min={80}
-          max={100}
+          min={20}
+          max={110}
           step={0.1}
           value={tempValue}
           onChange={(e) => setTempValue(parseFloat(e.target.value))}
           className="mt-3 w-full accent-mocha"
         />
-        <button onClick={handleSaveTemp} className={applyBtn}>
+        <button onClick={handleSaveTemp} disabled={!connected} className={applyBtn}>
           Aplicar temperatura
         </button>
       </div>
@@ -102,7 +109,7 @@ const SettingsScreen: React.FC = () => {
             </div>
           ))}
         </div>
-        <button onClick={handleSavePID} className={applyBtn}>
+        <button onClick={handleSavePID} disabled={!connected} className={applyBtn}>
           Aplicar PID
         </button>
       </div>

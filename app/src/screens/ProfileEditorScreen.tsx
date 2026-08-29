@@ -9,6 +9,7 @@ import {
   PROFILE_TEMP_MAX,
 } from '../utils/validators'
 import Screen from '../components/Screen'
+import NumberField from '../components/NumberField'
 import { chartColors } from '../theme'
 
 const emptyProfile: Omit<ExtractionProfile, 'id'> = {
@@ -257,16 +258,12 @@ const ProfileEditorScreen: React.FC = () => {
           </span>
         </div>
         <div className="flex items-baseline gap-2">
-          <input
-            type="number"
-            inputMode="decimal"
+          <NumberField
+            value={profile.temperature_c}
+            onChange={(n) => setProfile((p) => ({ ...p, temperature_c: n }))}
             min={PROFILE_TEMP_MIN}
             max={PROFILE_TEMP_MAX}
-            step={0.5}
-            value={profile.temperature_c}
-            onChange={(e) =>
-              setProfile((p) => ({ ...p, temperature_c: parseFloat(e.target.value) || 0 }))
-            }
+            ariaLabel="Temperatura alvo"
             className="tabular-live w-24 rounded-lg border border-line bg-latte px-2 py-1.5 text-sm text-ink outline-none focus:border-mocha"
           />
           <span className="text-sm text-muted">°C</span>
@@ -299,13 +296,11 @@ const ProfileEditorScreen: React.FC = () => {
             >
               <span className="w-5 shrink-0 text-xs font-semibold text-muted">{i + 1}</span>
               <div className="flex items-center gap-1">
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step={0.5}
+                <NumberField
                   value={step.seconds}
-                  onChange={(e) => updateStep(i, { seconds: parseFloat(e.target.value) || 0 })}
+                  onChange={(n) => updateStep(i, { seconds: n })}
+                  min={0}
+                  ariaLabel={`Duração do passo ${i + 1} em segundos`}
                   className="tabular-live w-16 rounded-lg border border-line bg-latte px-2 py-1.5 text-sm text-ink outline-none focus:border-mocha"
                 />
                 <span className="text-xs text-muted">s</span>

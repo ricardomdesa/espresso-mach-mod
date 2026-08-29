@@ -31,7 +31,14 @@ const LiveChart: React.FC<LiveChartProps> = ({ data }) => {
           <YAxis
             orientation="left"
             stroke={chartColors.temp}
-            domain={[80, 100]}
+            // Janela de ~50-95 °C (faixa real de extração desta máquina). Antes
+            // era fixa em 80-100: a temperatura ficava colada na borda de baixo
+            // e a oscilação virava uma linha reta. As funções deixam a escala
+            // crescer se a leitura sair da janela, sem cortar o dado.
+            domain={[
+              (dataMin: number) => Math.min(50, Math.floor(dataMin - 2)),
+              (dataMax: number) => Math.max(95, Math.ceil(dataMax + 2)),
+            ]}
             tick={{ fontSize: 11 }}
             tickLine={false}
             width={38}

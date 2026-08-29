@@ -6,7 +6,7 @@ import Screen from '../components/Screen'
 
 const ProfilesScreen: React.FC = () => {
   const navigate = useNavigate()
-  const { profiles, status, refreshProfiles } = useMachine()
+  const { profiles, profilesPending, status, refreshProfiles } = useMachine()
   const { setActiveProfile, deleteProfile } = useMachineApi()
   const [error, setError] = useState<string | null>(null)
   const [pendingId, setPendingId] = useState<string | null>(null)
@@ -76,6 +76,7 @@ const ProfilesScreen: React.FC = () => {
           {profiles.map((p) => {
             const isActive = status?.profile === p.name || status?.profile === p.id
             const busy = pendingId === p.id
+            const unsynced = profilesPending[p.id]
             return (
               <li
                 key={p.id}
@@ -90,6 +91,11 @@ const ProfilesScreen: React.FC = () => {
                       {isActive && (
                         <span className="shrink-0 rounded-full bg-mocha/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-mocha">
                           Ativo
+                        </span>
+                      )}
+                      {unsynced && (
+                        <span className="shrink-0 rounded-full bg-brick/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-brick">
+                          Nao sincronizado
                         </span>
                       )}
                     </div>
