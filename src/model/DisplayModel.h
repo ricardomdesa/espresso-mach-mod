@@ -47,6 +47,21 @@ public:
     bool steaming() const { return steaming_; }
     void setSteaming(bool on) { steaming_ = on; }
 
+    // Telemetria de debug da malha de temperatura. O main escreve a cada loop
+    // (duty do PID, idade da última leitura válida do termopar); a API só
+    // publica em /api/status e /ws. N1: a API lê daqui, nunca do PID/sensor.
+    float dutyPct() const { return dutyPct_; }
+    unsigned long sensorAgeMs() const { return sensorAgeMs_; }
+    void setControlDebug(float dutyPct, unsigned long sensorAgeMs) {
+        dutyPct_ = dutyPct;
+        sensorAgeMs_ = sensorAgeMs;
+    }
+
+    // Relé "temperatura pronta": caldeira no alvo efetivo (com histerese), para
+    // extração manual sem o app. Calculado em update(); o main espelha no
+    // PIN_READY. Sensor em falha (sensorAgeMs_ alto) força false.
+    bool ready() const { return ready_; }
+
     const PidGains &pid() const { return pid_; }
     void setPid(const PidGains &g) { pid_ = g; }
 
@@ -97,6 +112,10 @@ private:
     bool pumpOn_ = false;  // relé da bomba; desligado no boot
     bool preheating_ = false; // ciclo de perfil aguardando temperatura
     bool steaming_ = false;   // modo vaporização (PID mira TEMP_STEAM_C)
+
+    float dutyPct_ = 0.0f;         // duty do PID (0..100), escrito pelo main
+    unsigned long sensorAgeMs_ = 0; // idade da última leitura válida do termopar
+    bool ready_ = false;            // relé "temperatura pronta" (histerese)
 
     Timer timer_;
 };

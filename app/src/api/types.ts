@@ -32,6 +32,17 @@ export interface MachineStatus {
    * setpoint de café para 70 °C.
    */
   steam: boolean
+  /**
+   * Relé "temperatura pronta" (GPIO1) fechado: caldeira no alvo, com histerese.
+   * Para extração manual sem o app.
+   */
+  ready: boolean
+  /** Debug da malha: duty do PID 0..100 %. */
+  duty: number
+  /** Debug da malha: alvo efetivo do PID (setpoint de cafe ou ~90 em vapor). */
+  target: number
+  /** Debug: ms desde a ultima leitura valida do termopar (grande = falha). */
+  sensAgeMs: number
   uptime: number
   wifiMode: 'ap' | 'sta' | 'offline'
   pid: PIDParams
@@ -73,6 +84,12 @@ export interface WsFrame {
   timer: number
   state: MachineState
   profile: string | null
+  /** Debug da malha: duty do PID 0..100 %. */
+  duty?: number
+  /** Debug da malha: alvo efetivo do PID. */
+  target?: number
+  /** Debug: ms desde a ultima leitura valida do termopar. */
+  sensAgeMs?: number
 }
 
 export type WsEvent =

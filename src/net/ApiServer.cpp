@@ -11,8 +11,8 @@
 
 namespace {
 
-constexpr size_t kStatusJsonSize = 608;
-constexpr size_t kFrameJsonSize = 224;
+constexpr size_t kStatusJsonSize = 736;
+constexpr size_t kFrameJsonSize = 288;
 constexpr size_t kMaxBodyBytes = 4096;
 
 const char *kJson = "application/json";
@@ -120,13 +120,15 @@ void ApiServer::buildStatusJson(char *out, size_t outLen) const {
     snprintf(out, outLen,
              "{\"api\":%d,\"temp\":%.2f,\"press\":%.2f,\"tempSetpoint\":%.2f,"
              "\"pressSetpoint\":%.2f,\"timer\":%.1f,\"state\":\"%s\",\"profile\":%s,"
-             "\"led\":%s,\"pump\":%s,\"steam\":%s,\"uptime\":%lu,\"wifiMode\":\"%s\",\"ip\":\"%s\","
+             "\"led\":%s,\"pump\":%s,\"steam\":%s,\"ready\":%s,\"duty\":%.1f,\"target\":%.2f,"
+             "\"sensAgeMs\":%lu,\"uptime\":%lu,\"wifiMode\":\"%s\",\"ip\":\"%s\","
              "\"pid\":{\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f},\"heap\":%lu}",
              API_VERSION, model_.tempCurrent(), model_.pressureCurrent(),
              model_.tempSetpoint(), model_.pressureSetpoint(),
              model_.timer().elapsedMs() / 1000.0f, modeName(model_.mode()), profileField,
              model_.lightOn() ? "true" : "false", model_.pumpOn() ? "true" : "false",
-             model_.steaming() ? "true" : "false",
+             model_.steaming() ? "true" : "false", model_.ready() ? "true" : "false",
+             model_.dutyPct(), model_.tempTarget(), model_.sensorAgeMs(),
              millis() / 1000UL, wifiMode,
              wifi_.ip().toString().c_str(), model_.pid().kp, model_.pid().ki, model_.pid().kd,
              (unsigned long)ESP.getFreeHeap());
@@ -640,10 +642,13 @@ void ApiServer::serviceProfileRun() {
             endProfileRun(true);
             return;
         }
+        // "Pronto" = caldeira no alvo OU acima (menos a tolerância). Esperar ela
+        // DESCER até setpoint±tol seria inútil: para espresso basta estar quente
+        // o suficiente, e o resfriamento passivo leva minutos.
         const bool inBand =
-            fabsf(model_.tempCurrent() - model_.tempSetpoint()) <= kPreheatToleranceC;
+            model_.tempCurrent() >= model_.tempSetpoint() - kPreheatToleranceC;
         if (!inBand) {
-            run_.inBandSinceMs = 0; // saiu da faixa: reinicia a contagem de estabilidade
+            run_.inBandSinceMs = 0; // ainda abaixo do alvo: reinicia a contagem de estabilidade
             return;
         }
         if (run_.inBandSinceMs == 0) run_.inBandSinceMs = now;
@@ -716,8 +721,9 @@ void ApiServer::loop() {
     char frame[kFrameJsonSize];
     snprintf(frame, sizeof(frame),
              "{\"t\":%lu,\"temp\":%.2f,\"press\":%.2f,\"timer\":%.1f,\"state\":\"%s\","
-             "\"profile\":%s}",
+             "\"profile\":%s,\"duty\":%.1f,\"target\":%.2f,\"sensAgeMs\":%lu}",
              now, model_.tempCurrent(), model_.pressureCurrent(),
-             model_.timer().elapsedMs() / 1000.0f, modeName(model_.mode()), profileField);
+             model_.timer().elapsedMs() / 1000.0f, modeName(model_.mode()), profileField,
+             model_.dutyPct(), model_.tempTarget(), model_.sensorAgeMs());
     ws_.textAll(frame);
 }

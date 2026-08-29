@@ -66,6 +66,17 @@ void syncPump(const DisplayModel &model) {
     }
 }
 
+// Espelha o relé "temperatura pronta" (model.ready(), com histerese) no GPIO1,
+// só quando muda. Contato seco pra extração manual sem o app.
+void syncReady(const DisplayModel &model) {
+    static int applied = -1;
+    const int want = model.ready() ? READY_ACTIVE : READY_IDLE;
+    if (want != applied) {
+        digitalWrite(PIN_READY, want);
+        applied = want;
+    }
+}
+
 } // namespace
 
 void setup() {
@@ -85,6 +96,13 @@ void setup() {
     digitalWrite(PIN_PUMP, PUMP_IDLE);
     pinMode(PIN_PUMP, OUTPUT);
     digitalWrite(PIN_PUMP, PUMP_IDLE);
+
+    // Relé "temperatura pronta" (GPIO1, mesmo módulo active-low da bomba):
+    // aberto no boot. Pré-seta o latch em IDLE antes do pinMode pelo mesmo
+    // motivo da bomba — evitar um pulso curto ao trocar o pino para OUTPUT.
+    digitalWrite(PIN_READY, READY_IDLE);
+    pinMode(PIN_READY, OUTPUT);
+    digitalWrite(PIN_READY, READY_IDLE);
 
     // SSR de aquecimento: pino em OUTPUT e desligado. O PID começa a atuar no
     // primeiro loop, mas só depois que o termopar devolver uma leitura válida
@@ -117,8 +135,11 @@ void loop() {
     // Não bloqueia — tudo por millis().
     pid.update();
     heater.update(pid.duty());
+    // Telemetria pra /api/status e /ws (debug via WiFi, sem serial no PC).
+    model.setControlDebug(pid.duty(), tempRaw.msSinceLastValidRead());
 
     syncPump(model);
+    syncReady(model);
 
     // LED de iluminação: sempre sob controle do app/botão (não pisca em setup,
     // pra não mexer na luz real da máquina).

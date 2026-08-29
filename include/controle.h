@@ -32,6 +32,13 @@ constexpr float TEMP_MAX_SAFETY_C = 115.0f;
 constexpr float TEMP_STEAM_C = 90.0f;
 constexpr float TEMP_BREW_DEFAULT_C = 70.0f;
 
+// Relé "temperatura pronta" (PIN_READY). Histerese em torno do alvo efetivo do
+// PID (café ou vapor): fecha o relé quando a caldeira encosta no alvo, só abre
+// se cair além da margem maior. Banda de 3 °C evita o relé bater ("chatter")
+// perto do limiar. Sensor em falha força o relé aberto.
+constexpr float READY_ON_MARGIN_C = 1.0f;  // liga: temp >= alvo - 1
+constexpr float READY_OFF_MARGIN_C = 4.0f; // desliga: temp < alvo - 4
+
 // Nível lógico que liga o SSR de aquecimento (ver pinos.h — a confirmar em bancada).
 #define ACTUATOR_ON HIGH
 #define ACTUATOR_OFF LOW

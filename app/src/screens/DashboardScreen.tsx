@@ -6,7 +6,7 @@ import { useLocalHistory } from '../hooks/useLocalHistory'
 import Screen from '../components/Screen'
 import TimerDisplay from '../components/TimerDisplay'
 import LiveChart from '../components/LiveChart'
-import { MachineState, WsFrame } from '../api/types'
+import { MachineState, MachineStatus, WsFrame } from '../api/types'
 
 const stateLabel: Record<MachineState, string> = {
   idle: 'Ocioso',
@@ -70,6 +70,37 @@ const ControlToggle: React.FC<ControlToggleProps> = ({ label, on, disabled, onTo
     </span>
   </button>
 )
+
+// Linha de debug da malha de temperatura (dados via /ws ou /api/status).
+// Duty do PID, alvo efetivo e idade da ultima leitura do termopar — util
+// pra diagnosticar preheat/failsafe sem serial no PC.
+const DebugLine: React.FC<{ frame: WsFrame | null; status: MachineStatus | null }> = ({
+  frame,
+  status,
+}) => {
+  const duty = frame?.duty ?? status?.duty
+  const target = frame?.target ?? status?.target
+  const age = frame?.sensAgeMs ?? status?.sensAgeMs
+  const ready = status?.ready
+  if (duty == null && target == null && age == null && ready == null) return null
+  const stale = age != null && age > 10000
+  return (
+    <div className="tabular-live mt-1 flex flex-wrap gap-x-3 gap-y-0.5 px-1 text-[11px] text-muted">
+      {duty != null && <span>duty {duty.toFixed(0)}%</span>}
+      {target != null && <span>alvo {target.toFixed(1)}°C</span>}
+      {age != null && (
+        <span className={stale ? 'font-semibold text-brick' : ''}>
+          sensor {(age / 1000).toFixed(1)}s{stale ? ' (falha)' : ''}
+        </span>
+      )}
+      {ready != null && (
+        <span className={ready ? 'font-semibold text-herb' : ''}>
+          rele {ready ? 'pronto' : 'aguardando'}
+        </span>
+      )}
+    </div>
+  )
+}
 
 const DashboardScreen: React.FC = () => {
   const { currentFrame, status, connected, lastEvent, profiles, refreshProfiles } = useMachine()
@@ -181,6 +212,7 @@ const DashboardScreen: React.FC = () => {
           target={status ? temp(status.tempSetpoint) : '--'}
           accent="text-roast"
         />
+        <DebugLine frame={frame} status={status} />
       </div>
 
       {/* Timer + estado (protagonista durante o shot) */}
