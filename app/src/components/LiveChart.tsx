@@ -8,14 +8,21 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import { WsFrame } from '../api/types'
 import { chartColors } from '../theme'
 
-interface LiveChartProps {
-  data: WsFrame[]
+interface ChartPoint {
+  t: number
+  temp: number
+  target?: number
 }
 
-const LiveChart: React.FC<LiveChartProps> = ({ data }) => {
+interface LiveChartProps {
+  data: ChartPoint[]
+  /** Desenha tambem a linha do alvo do PID (usa o campo `target`). */
+  showTarget?: boolean
+}
+
+const LiveChart: React.FC<LiveChartProps> = ({ data, showTarget = false }) => {
   return (
     <div className="h-56 w-full rounded-2xl border border-line bg-cream p-2 shadow-card">
       <ResponsiveContainer width="100%" height="100%">
@@ -53,6 +60,19 @@ const LiveChart: React.FC<LiveChartProps> = ({ data }) => {
             }}
             labelFormatter={(v: number) => `Tempo: ${(v / 1000).toFixed(1)}s`}
           />
+          {showTarget && (
+            <Line
+              type="monotone"
+              dataKey="target"
+              name="Alvo"
+              stroke={chartColors.axis}
+              strokeWidth={1}
+              strokeDasharray="4 3"
+              dot={false}
+              isAnimationActive={false}
+              connectNulls
+            />
+          )}
           <Line
             type="monotone"
             dataKey="temp"

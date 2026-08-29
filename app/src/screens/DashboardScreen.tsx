@@ -160,6 +160,19 @@ const DashboardScreen: React.FC = () => {
           profilesRef.current.find((p) => p.id === last.profile)?.name ??
           last.profile ??
           'Sem perfil'
+        // Amostra a curva pra ~120 pontos: 100ms/frame cheio estoura o
+        // Preferences com 500 registros guardados. 1 ponto/s ja descreve a
+        // oscilacao da caldeira.
+        const round1 = (n: number) => Math.round(n * 10) / 10
+        const t0 = frames[0].t
+        const stride = Math.max(1, Math.ceil(frames.length / 120))
+        const samples = frames
+          .filter((_, i) => i % stride === 0 || i === frames.length - 1)
+          .map((f) => ({
+            t: f.t - t0,
+            temp: round1(f.temp),
+            target: f.target != null ? round1(f.target) : undefined,
+          }))
         addHistoryRecord({
           id: `${Date.now()}`,
           date: new Date().toISOString(),
@@ -167,6 +180,8 @@ const DashboardScreen: React.FC = () => {
           profileName: name,
           tempAvg,
           pressAvg,
+          tempTarget: last.target != null ? round1(last.target) : undefined,
+          samples,
         })
       }
       sessionFramesRef.current = []
