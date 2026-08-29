@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useMachine } from '../context/MachineContext'
 import { discoverMachine, PROVISIONING_AP_URL } from '../utils/discovery'
 import { bindToWifi, diagnoseNetwork } from '../native/networkBinder'
@@ -169,6 +169,36 @@ const SetupScreen: React.FC = () => {
           {error && (
             <div className="mt-4 rounded-xl border border-brick/30 bg-brick/10 px-3 py-2.5 text-xs text-brick">
               {error}
+            </div>
+          )}
+
+          {/* A máquina pode estar desligada: dá pra usar o app offline para
+              mexer em perfis e ajustes; sincroniza quando ela voltar. */}
+          {!connected && !busy && (
+            <div className="mt-4 border-t border-line pt-3">
+              <p className="mb-2 text-xs text-muted">Máquina desligada? Use o app offline:</p>
+              <div className="flex gap-2">
+                <Link
+                  to="/profiles"
+                  className="flex-1 rounded-xl bg-foam py-2.5 text-center text-xs font-semibold text-ink active:bg-line"
+                >
+                  Perfis
+                </Link>
+                <Link
+                  to="/settings"
+                  className="flex-1 rounded-xl bg-foam py-2.5 text-center text-xs font-semibold text-ink active:bg-line"
+                >
+                  Ajustes
+                </Link>
+                {baseUrl && (
+                  <Link
+                    to="/"
+                    className="flex-1 rounded-xl bg-foam py-2.5 text-center text-xs font-semibold text-ink active:bg-line"
+                  >
+                    Painel
+                  </Link>
+                )}
+              </div>
             </div>
           )}
         </div>

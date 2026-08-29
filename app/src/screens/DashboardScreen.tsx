@@ -12,6 +12,7 @@ const stateLabel: Record<MachineState, string> = {
   idle: 'Ocioso',
   heating: 'Aquecendo',
   preheating: 'Aquecendo p/ extracao',
+  steaming: 'Vaporizando',
   extracting: 'Extraindo',
   error: 'Erro',
 }
@@ -20,6 +21,7 @@ const stateStyle: Record<MachineState, string> = {
   idle: 'bg-foam text-muted',
   heating: 'bg-roast/10 text-roast',
   preheating: 'bg-roast/10 text-roast',
+  steaming: 'bg-roast/10 text-roast',
   extracting: 'bg-mocha/10 text-mocha',
   error: 'bg-brick/10 text-brick',
 }

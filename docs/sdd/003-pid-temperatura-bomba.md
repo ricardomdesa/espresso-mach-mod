@@ -1,6 +1,11 @@
 # SDD-003 — Épico 3: Controle PID Temperatura + Bomba
 
-- **Status:** Pendente (não implementado)
+- **Status:** Implementado (firmware, parte de temperatura). Malha fechada `SensorCalibrated` → `PidController` → `HeaterOutput` → SSR (`PIN_ACTUATOR=10`), rodando desde o boot. **Pendente:** validação/tuning em hardware real (SSR + termopar + caldeira).
+- **Desvios do plano original (as-built):**
+  - **PID hand-rolled**, não `br3ttb/PID` (D1). PID posicional, só-aquecimento: saída e integral limitados a 0..100 %, anti-windup por clamp da integral, derivada sobre a medição. Lê Kp/Ki/Kd e setpoint do `DisplayModel` (persistidos em NVS, editáveis por `/api/pid` e `/api/setpoint/temp`) a cada cálculo — não são mais consts fixas.
+  - **Bomba = relé liga/desliga** (`PIN_PUMP=0`, módulo active-low), não dimmer AC zero-cross (D4). `RBDdimmer`, `PumpDimmer`, `PUMP_ZC_PIN`/`PUMP_PSM_PIN` e `PUMP_POWER_PERCENT` não existem. O acionamento da bomba já está integrado ao ciclo de extração e à sequência de passos dos perfis (ver SDD-006).
+  - Pinos finais: `PIN_ACTUATOR=10` (SSR), termopar em 5/6/7. Consts não-ganho em `include/controle.h` (`SSR_WINDOW_MS`, `PID_INTERVAL_MS`, `SENSOR_FAULT_TIMEOUT_MS`, `TEMP_MAX_SAFETY_C`).
+  - Failsafes (D6 + extra): duty forçado a 0 % se a última leitura válida do termopar tiver > `SENSOR_FAULT_TIMEOUT_MS` (10 s) **ou** se a temperatura passar de `TEMP_MAX_SAFETY_C` (130 °C).
 - **Épico:** 3 de 4 (MVP)
 - **Pré-requisitos:** Épico 2 concluído (`SensorCalibrated` de temperatura publicando no `DisplayModel`)
 - **Hardware alvo:** ESP32-C3 Super Mini, SSR 25A (3-32VDC controle), módulo dimmer AC digital com detector de zero-cross, bomba vibratória Ulka original

@@ -1,4 +1,10 @@
-export type MachineState = 'idle' | 'heating' | 'preheating' | 'extracting' | 'error'
+export type MachineState =
+  | 'idle'
+  | 'heating'
+  | 'preheating'
+  | 'steaming'
+  | 'extracting'
+  | 'error'
 
 export interface PIDParams {
   kp: number
@@ -20,6 +26,12 @@ export interface MachineStatus {
   led: boolean
   /** Relé da bomba ligado. Não é persistido: desligado no boot da máquina. */
   pump: boolean
+  /**
+   * Modo vaporização ligado: o PID mira ~90 °C em vez do setpoint de café.
+   * Não é persistido (desligado no boot); ao desligar, a máquina devolve o
+   * setpoint de café para 70 °C.
+   */
+  steam: boolean
   uptime: number
   wifiMode: 'ap' | 'sta' | 'offline'
   pid: PIDParams

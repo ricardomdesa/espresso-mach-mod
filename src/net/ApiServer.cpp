@@ -7,10 +7,11 @@
 #include <string.h>
 
 #include "rede.h"
+#include "controle.h"
 
 namespace {
 
-constexpr size_t kStatusJsonSize = 576;
+constexpr size_t kStatusJsonSize = 608;
 constexpr size_t kFrameJsonSize = 224;
 constexpr size_t kMaxBodyBytes = 4096;
 
@@ -29,6 +30,8 @@ const char *modeName(MachineMode m) {
         return "extracting";
     case MachineMode::Preheating:
         return "preheating";
+    case MachineMode::Steaming:
+        return "steaming";
     case MachineMode::Heating:
         return "heating";
     case MachineMode::Error:
@@ -117,12 +120,13 @@ void ApiServer::buildStatusJson(char *out, size_t outLen) const {
     snprintf(out, outLen,
              "{\"api\":%d,\"temp\":%.2f,\"press\":%.2f,\"tempSetpoint\":%.2f,"
              "\"pressSetpoint\":%.2f,\"timer\":%.1f,\"state\":\"%s\",\"profile\":%s,"
-             "\"led\":%s,\"pump\":%s,\"uptime\":%lu,\"wifiMode\":\"%s\",\"ip\":\"%s\","
+             "\"led\":%s,\"pump\":%s,\"steam\":%s,\"uptime\":%lu,\"wifiMode\":\"%s\",\"ip\":\"%s\","
              "\"pid\":{\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f},\"heap\":%lu}",
              API_VERSION, model_.tempCurrent(), model_.pressureCurrent(),
              model_.tempSetpoint(), model_.pressureSetpoint(),
              model_.timer().elapsedMs() / 1000.0f, modeName(model_.mode()), profileField,
              model_.lightOn() ? "true" : "false", model_.pumpOn() ? "true" : "false",
+             model_.steaming() ? "true" : "false",
              millis() / 1000UL, wifiMode,
              wifi_.ip().toString().c_str(), model_.pid().kp, model_.pid().ki, model_.pid().kd,
              (unsigned long)ESP.getFreeHeap());
@@ -206,8 +210,8 @@ void ApiServer::registerRoutes() {
                        return;
                    }
                    const float v = body["temp"].as<float>();
-                   if (v < 20.0f || v > 130.0f) {
-                       sendError(request, 400, "temp fora da faixa (20-130)");
+                   if (v < 20.0f || v > TEMP_MAX_SAFETY_C) {
+                       sendError(request, 400, "temp fora da faixa (20-115)");
                        return;
                    }
                    model_.setTempSetpoint(v);
@@ -277,6 +281,33 @@ void ApiServer::registerRoutes() {
                    sendStatus(request);
                });
 
+    // Modo vaporização: liga (setpoint efetivo -> TEMP_STEAM_C, sem NVS) ou
+    // desliga (devolve o setpoint de café para TEMP_BREW_DEFAULT_C, persistido).
+    // Recusado durante uma extração/perfil em andamento — lá quem manda no
+    // setpoint é o executor do perfil.
+    onJsonBody(server_, "/api/steam", HTTP_PUT,
+               [this](AsyncWebServerRequest *request, JsonVariantConst body) {
+                   if (!authOk(request)) {
+                       sendError(request, 401, "token invalido");
+                       return;
+                   }
+                   if (!body["on"].is<bool>()) {
+                       sendError(request, 400, "campo on ausente");
+                       return;
+                   }
+                   const bool on = body["on"].as<bool>();
+                   if (on && (model_.timer().isRunning() || model_.preheating())) {
+                       sendError(request, 409, "vaporizacao indisponivel durante extracao");
+                       return;
+                   }
+                   model_.setSteaming(on);
+                   if (!on) {
+                       model_.setTempSetpoint(TEMP_BREW_DEFAULT_C);
+                       nvs_.saveTempSetpoint(TEMP_BREW_DEFAULT_C);
+                   }
+                   sendStatus(request);
+               });
+
     onJsonBody(server_, "/api/pid", HTTP_PUT,
                [this](AsyncWebServerRequest *request, JsonVariantConst body) {
                    if (!authOk(request)) {
@@ -311,6 +342,9 @@ void ApiServer::registerRoutes() {
             sendError(request, 409, "extracao indisponivel em modo de configuracao");
             return;
         }
+        // Extração assume o controle do setpoint; sai do modo vaporização se
+        // estava ligado (o executor do perfil grava o próprio setpoint).
+        model_.setSteaming(false);
         // Com um perfil ativo utilizável, o executor assume: aquece até o
         // setpoint do perfil e depois roda os passos da bomba. Sem perfil,
         // cai no start manual (bomba ligada direto).
@@ -572,7 +606,7 @@ bool ApiServer::beginProfileRun() {
 
     // A temperatura do perfil vira o setpoint, persistida como no ajuste manual.
     const float temp = prof["temperature_c"] | 0.0f;
-    const bool hasTemp = temp >= 20.0f && temp <= 130.0f;
+    const bool hasTemp = temp >= 20.0f && temp <= TEMP_MAX_SAFETY_C;
     if (hasTemp) {
         model_.setTempSetpoint(temp);
         nvs_.saveTempSetpoint(temp);

@@ -20,11 +20,10 @@
 #define STATUS_LED_ON LOW
 #define STATUS_LED_OFF HIGH
 
-// Reservados para o hardware real de controle de temperatura (termopar +
-// atuador de aquecimento). Soldados desde já para não precisar reabrir a
-// máquina quando o sensor/relé chegarem; ainda sem driver no firmware
-// (SensorFake segue em uso até a integração).
-#define PIN_THERMO_SCK 5 // GPIO5 — SPI SCK do amplificador do termopar (MAX6675/31855)
+// Controle de temperatura: termopar tipo K via MAX6675 (SPI bit-bang) +
+// SSR de aquecimento. Driver ativo no firmware (SensorMax6675 + PidController
+// + HeaterOutput). A pressão segue em SensorFake — sensor de pressão é Fase 2.
+#define PIN_THERMO_SCK 5 // GPIO5 — SPI SCK do amplificador do termopar (MAX6675)
 #define PIN_THERMO_SO 6  // GPIO6 — SPI SO/MISO do amplificador (leitura)
 #define PIN_THERMO_CS 7  // GPIO7 — SPI CS do amplificador
 

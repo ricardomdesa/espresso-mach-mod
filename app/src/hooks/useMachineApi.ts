@@ -3,7 +3,7 @@ import { useMachine } from '../context/MachineContext'
 import { PIDParams, ExtractionProfile } from '../api/types'
 
 export function useMachineApi() {
-  const { api, refreshStatus, refreshProfiles } = useMachine()
+  const { api, refreshStatus, saveProfile, removeProfile } = useMachine()
 
   const setTemp = useCallback(
     async (temp: number) => {
@@ -32,6 +32,15 @@ export function useMachineApi() {
     [api, refreshStatus],
   )
 
+  const setSteam = useCallback(
+    async (on: boolean) => {
+      if (!api) throw new Error('Not connected')
+      await api.setSteam(on)
+      await refreshStatus()
+    },
+    [api, refreshStatus],
+  )
+
   const setPID = useCallback(
     async (params: PIDParams) => {
       if (!api) throw new Error('Not connected')
@@ -53,31 +62,27 @@ export function useMachineApi() {
     await refreshStatus()
   }, [api, refreshStatus])
 
+  // Perfis funcionam offline: gravam no cache local e sincronizam com a
+  // máquina assim que ela responde (ver MachineContext).
   const createProfile = useCallback(
     async (profile: Omit<ExtractionProfile, 'id'>) => {
-      if (!api) throw new Error('Not connected')
-      await api.createProfile(profile)
-      await refreshProfiles()
+      await saveProfile(profile)
     },
-    [api, refreshProfiles],
+    [saveProfile],
   )
 
   const updateProfile = useCallback(
     async (id: string, profile: Omit<ExtractionProfile, 'id'>) => {
-      if (!api) throw new Error('Not connected')
-      await api.updateProfile(id, profile)
-      await refreshProfiles()
+      await saveProfile(profile, id)
     },
-    [api, refreshProfiles],
+    [saveProfile],
   )
 
   const deleteProfile = useCallback(
     async (id: string) => {
-      if (!api) throw new Error('Not connected')
-      await api.deleteProfile(id)
-      await refreshProfiles()
+      await removeProfile(id)
     },
-    [api, refreshProfiles],
+    [removeProfile],
   )
 
   const setActiveProfile = useCallback(
@@ -93,6 +98,7 @@ export function useMachineApi() {
     setTemp,
     setLed,
     setPump,
+    setSteam,
     setPID,
     startExtraction,
     stopExtraction,

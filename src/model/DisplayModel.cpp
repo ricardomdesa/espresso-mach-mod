@@ -3,6 +3,8 @@
 #include <math.h>
 #include <string.h>
 
+#include "controle.h"
+
 namespace {
 // Margem para considerar a caldeira "em temperatura".
 constexpr float kTempToleranceC = 2.0f;
@@ -25,6 +27,10 @@ void DisplayModel::setActiveProfileId(const char *id) {
     activeProfileId_[sizeof(activeProfileId_) - 1] = '\0';
 }
 
+float DisplayModel::tempTarget() const {
+    return steaming_ ? TEMP_STEAM_C : tempSetpoint_;
+}
+
 MachineMode DisplayModel::mode() const {
     if (timer_.isRunning()) {
         return MachineMode::Extracting;
@@ -32,7 +38,10 @@ MachineMode DisplayModel::mode() const {
     if (preheating_) {
         return MachineMode::Preheating;
     }
-    if (fabsf(tempCurrent_ - tempSetpoint_) > kTempToleranceC) {
+    if (steaming_) {
+        return MachineMode::Steaming;
+    }
+    if (fabsf(tempCurrent_ - tempTarget()) > kTempToleranceC) {
         return MachineMode::Heating;
     }
     return MachineMode::Idle;

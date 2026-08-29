@@ -2,9 +2,15 @@
 
 #include "pinos.h"
 #include "rede.h"
+#include "calibracao.h"
+#include "controle.h"
 #include "config/NvsConfig.h"
 #include "model/DisplayModel.h"
 #include "sensors/SensorFake.h"
+#include "sensors/SensorMax6675.h"
+#include "sensors/SensorCalibrated.h"
+#include "control/PidController.h"
+#include "control/HeaterOutput.h"
 #include "input/Button.h"
 #include "net/ApiServer.h"
 #include "net/WifiProvisioner.h"
@@ -24,9 +30,16 @@ Button button(PIN_BUTTON, kButtonDebounceMs, kSetupHoldMs);
 // Uma piscada a cada 2 s: 1 s aceso, 1 s apagado.
 constexpr unsigned long kApBlinkPeriodMs = 2000UL;
 
-SensorFake tempSensor(93.0f, 2.0f, 4000.0f);
+// Temperatura: termopar tipo K via MAX6675 (SPI bit-bang), com decorator de
+// calibração linear. Pressão segue fake — sensor de pressão é Fase 2.
+SensorMax6675 tempRaw(PIN_THERMO_SCK, PIN_THERMO_CS, PIN_THERMO_SO);
+SensorCalibrated tempSensor(tempRaw, TEMP_CAL_OFFSET, TEMP_CAL_GAIN);
 SensorFake pressureSensor(9.0f, 0.5f, 3000.0f);
 DisplayModel model(tempSensor, pressureSensor);
+
+// Laço fechado de temperatura: PID -> time-proportioning -> SSR (PIN_ACTUATOR).
+PidController pid(model, tempRaw);
+HeaterOutput heater(PIN_ACTUATOR);
 
 NvsConfig nvs;
 WifiProvisioner wifi(nvs);
@@ -73,9 +86,10 @@ void setup() {
     pinMode(PIN_PUMP, OUTPUT);
     digitalWrite(PIN_PUMP, PUMP_IDLE);
 
-    // SSR de aquecimento: desligado no boot (driver do PID vem nos épicos 2-4).
-    pinMode(PIN_ACTUATOR, OUTPUT);
-    digitalWrite(PIN_ACTUATOR, LOW);
+    // SSR de aquecimento: pino em OUTPUT e desligado. O PID começa a atuar no
+    // primeiro loop, mas só depois que o termopar devolver uma leitura válida
+    // (failsafe do PidController mantém duty 0 % até lá).
+    heater.begin();
 
     // LED azul onboard: apagado no boot; pisca só no modo de configuração.
     pinMode(PIN_STATUS_LED, OUTPUT);
@@ -98,6 +112,12 @@ void setup() {
 void loop() {
     button.update();
     model.update();
+
+    // Laço de temperatura: calcula o duty e aciona o SSR dentro da janela.
+    // Não bloqueia — tudo por millis().
+    pid.update();
+    heater.update(pid.duty());
+
     syncPump(model);
 
     // LED de iluminação: sempre sob controle do app/botão (não pisca em setup,
