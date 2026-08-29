@@ -116,6 +116,14 @@ const DashboardScreen: React.FC = () => {
   // para fora e voltou no meio do shot), sessionFramesRef só tem o rabo da
   // sessão — a média não pode ser cruzada com o timer cheio da máquina.
   const sessionIncompleteRef = useRef(false)
+  // `profiles` só é lido pra resolver o nome do perfil ao gravar o histórico.
+  // Mantido num ref pra NÃO entrar no dep array do efeito de gravação — senão
+  // um refreshProfiles() no meio do shot re-dispara o efeito com o mesmo
+  // currentFrame e empurra a amostra duas vezes.
+  const profilesRef = useRef(profiles)
+  useEffect(() => {
+    profilesRef.current = profiles
+  }, [profiles])
 
   // O frame/status trazem o ID do perfil ativo (ex.: "p3"); a tela mostra o nome.
   useEffect(() => {
@@ -149,7 +157,9 @@ const DashboardScreen: React.FC = () => {
         const pressAvg = frames.reduce((s, f) => s + f.press, 0) / frames.length
         const last = frames[frames.length - 1]
         const name =
-          profiles.find((p) => p.id === last.profile)?.name ?? last.profile ?? 'Sem perfil'
+          profilesRef.current.find((p) => p.id === last.profile)?.name ??
+          last.profile ??
+          'Sem perfil'
         addHistoryRecord({
           id: `${Date.now()}`,
           date: new Date().toISOString(),
@@ -164,7 +174,7 @@ const DashboardScreen: React.FC = () => {
       // limpar grafico apos a extração
       setChartData([])
     }
-  }, [currentFrame, addHistoryRecord, profiles])
+  }, [currentFrame, addHistoryRecord])
 
   const runControl = async (fn: () => Promise<unknown>) => {
     setError(null)
@@ -176,6 +186,8 @@ const DashboardScreen: React.FC = () => {
   }
 
   const frame = currentFrame
+  const effectiveTarget =
+    frame?.target ?? status?.target ?? status?.tempSetpoint ?? null
   const machineState: MachineState = frame?.state ?? 'idle'
   const isExtracting = machineState === 'extracting'
   // Enquanto aquece para a extração de um perfil a máquina ainda não está
@@ -209,7 +221,12 @@ const DashboardScreen: React.FC = () => {
         <StatCard
           label="Temperatura"
           value={frame ? temp(frame.temp) : '--'}
-          target={status ? temp(status.tempSetpoint) : '--'}
+          // Alvo efetivo do PID (frame/status.target): em vaporização o firmware
+          // mira ~90 °C sem tocar em tempSetpoint, então tempSetpoint daria o
+          // número errado durante o vapor — só serve de fallback.
+          target={
+            effectiveTarget != null ? temp(effectiveTarget) : '--'
+          }
           accent="text-roast"
         />
         <DebugLine frame={frame} status={status} />

@@ -133,10 +133,23 @@ void loop() {
 
     // Laço de temperatura: calcula o duty e aciona o SSR dentro da janela.
     // Não bloqueia — tudo por millis().
-    pid.update();
-    heater.update(pid.duty());
-    // Telemetria pra /api/status e /ws (debug via WiFi, sem serial no PC).
-    model.setControlDebug(pid.duty(), tempRaw.msSinceLastValidRead());
+    if (wifi.mode() == WifiMode::Ap) {
+        // Modo de configuração: WiFi.scanNetworks() bloqueia este loop por
+        // segundos de cada vez. Se o PID/SSR rodassem aqui, o GPIO do aquecedor
+        // poderia ficar preso "ligado" durante um scan — sem o corte de
+        // sobretemperatura (que vive no PidController::update()) rodar. Então o
+        // aquecedor fica forçado desligado enquanto o AP está no ar;
+        // provisionamento não é modo operacional (entra só via hold do botão e
+        // reinicia pra aplicar). pid.reset() mantém o estado limpo pra retomada.
+        heater.update(0.0f);
+        pid.reset();
+        model.setControlDebug(0.0f, tempRaw.msSinceLastValidRead());
+    } else {
+        pid.update();
+        heater.update(pid.duty());
+        // Telemetria pra /api/status e /ws (debug via WiFi, sem serial no PC).
+        model.setControlDebug(pid.duty(), tempRaw.msSinceLastValidRead());
+    }
 
     syncPump(model);
     syncReady(model);

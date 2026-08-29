@@ -344,18 +344,17 @@ void ApiServer::registerRoutes() {
             sendError(request, 409, "extracao indisponivel em modo de configuracao");
             return;
         }
-        // Extração assume o controle do setpoint; sai do modo vaporização se
-        // estava ligado (o executor do perfil grava o próprio setpoint).
-        model_.setSteaming(false);
-        // Com um perfil ativo utilizável, o executor assume: aquece até o
-        // setpoint do perfil e depois roda os passos da bomba. Sem perfil,
-        // cai no start manual (bomba ligada direto).
-        if (!beginProfileRun()) {
-            model_.timer().reset();
-            model_.timer().start();
-            model_.setPumpOn(true);
+        // Já em andamento (executor OU start manual, ou start pendente): recusa
+        // em vez de re-entrar em beginProfileRun() — que regravaria o setpoint
+        // na NVS e sobrescreveria run_ enquanto a task do loop o percorre.
+        if (extracting_ || startReq_) {
+            sendError(request, 409, "extracao ja em andamento");
+            return;
         }
-        broadcastEvent("extraction_started");
+        // O trabalho real (setSteaming/beginProfileRun/timer/bomba) roda na task
+        // do loop() — ver ApiServer::loop(). Aqui só sinaliza, pra run_ nunca
+        // ser mutada de duas tasks.
+        startReq_ = true;
         sendStatus(request);
     });
 
@@ -364,10 +363,8 @@ void ApiServer::registerRoutes() {
             sendError(request, 401, "token invalido");
             return;
         }
-        endProfileRun(false); // cancela o executor (preheat ou passos)
-        model_.timer().stop();
-        model_.setPumpOn(false); // fim da extração desliga a bomba
-        broadcastEvent("extraction_stopped");
+        // Idem: o stop efetivo (endProfileRun/timer/bomba) roda na task do loop().
+        stopReq_ = true;
         sendStatus(request);
     });
 
@@ -685,6 +682,7 @@ void ApiServer::endProfileRun(bool broadcastStopped) {
     model_.setPreheating(false);
     model_.timer().stop();
     model_.setPumpOn(false);
+    extracting_ = false; // libera novo /api/extraction/start
     if (broadcastStopped && wasActive) broadcastEvent("extraction_stopped");
 }
 
@@ -701,6 +699,34 @@ void ApiServer::broadcastError(const char *msg) {
 }
 
 void ApiServer::loop() {
+    // Consome os pedidos de start/stop erguidos pelos handlers HTTP (task
+    // AsyncTCP). Fazer aqui, na task do loop(), garante que run_ e a bomba só
+    // são mexidas por uma task — sem isto um stop podia zerar run_.phase logo
+    // depois do guard de serviceProfileRun(), que então religava a bomba sem
+    // timer.
+    if (stopReq_) {
+        stopReq_ = false;
+        startReq_ = false; // stop pendente cancela um start pendente
+        endProfileRun(false);
+        model_.timer().stop();
+        model_.setPumpOn(false);
+        broadcastEvent("extraction_stopped");
+    }
+    if (startReq_ && !extracting_) {
+        startReq_ = false;
+        // Extração assume o controle do setpoint; sai do modo vaporização.
+        model_.setSteaming(false);
+        // Com perfil ativo utilizável, o executor assume (preheat + passos).
+        // Sem perfil, start manual: bomba ligada direto.
+        if (!beginProfileRun()) {
+            model_.timer().reset();
+            model_.timer().start();
+            model_.setPumpOn(true);
+        }
+        extracting_ = true;
+        broadcastEvent("extraction_started");
+    }
+
     serviceProfileRun(); // independente do intervalo de streaming
 
     const unsigned long now = millis();

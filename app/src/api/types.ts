@@ -98,6 +98,14 @@ export type WsEvent =
   | { event: 'error'; msg: string }
   | { event: 'pong' }
 
+export interface ExtractionSample {
+  /** ms desde o inicio da extracao. */
+  t: number
+  temp: number
+  /** Alvo efetivo do PID naquele instante, quando disponivel. */
+  target?: number
+}
+
 export interface ExtractionRecord {
   id: string
   date: string
@@ -105,5 +113,13 @@ export interface ExtractionRecord {
   profileName: string
   tempAvg: number
   pressAvg: number
+  /** Alvo de temperatura vigente no fim da extracao (setpoint do perfil). */
+  tempTarget?: number
+  /**
+   * Curva de temperatura amostrada (~1 ponto/s, no maximo ~120 pontos) para
+   * revisao posterior no historico. Ausente em registros antigos.
+   */
+  samples?: ExtractionSample[]
+  /** Anotacoes livres do usuario (moagem, dose, sabor...). Editavel depois. */
   notes?: string
 }

@@ -23,6 +23,12 @@ public:
 
     void update();
 
+    // Zera o estado interno (integral, derivada, duty, marca de tempo). Chamar
+    // ao retomar o controle depois de uma pausa longa — ex.: sair do modo AP,
+    // onde o loop fica segundos sem rodar — para a próxima passada não calcular
+    // a derivada com um dt gigante.
+    void reset();
+
     // Duty calculado (0..100 %). Consumido pelo HeaterOutput.
     float duty() const { return duty_; }
 

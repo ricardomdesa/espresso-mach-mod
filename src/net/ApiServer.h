@@ -56,6 +56,15 @@ private:
         bool stepPump[kMaxProfileSteps] = {false};
     } run_;
 
+    // run_ é mutada só pela task do loop() (serviceProfileRun / begin / end).
+    // Os handlers HTTP rodam na task do AsyncTCP: eles apenas erguem estas
+    // flags e ApiServer::loop() faz o start/stop no início da volta seguinte.
+    // Sem isto, start/stop na task TCP corriam com serviceProfileRun e podiam
+    // deixar o relé da bomba ligado sem timer.
+    volatile bool startReq_ = false;
+    volatile bool stopReq_ = false;
+    volatile bool extracting_ = false; // start manual OU perfil ativo (guard de re-entrada)
+
     // Tenta montar o executor a partir do perfil ativo. Devolve false se não há
     // perfil utilizável (o chamador cai no start "manual": bomba ligada direto).
     bool beginProfileRun();
