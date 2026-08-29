@@ -34,9 +34,9 @@ interface StatCardProps {
 }
 
 const StatCard: React.FC<StatCardProps> = ({ label, value, target, accent }) => (
-  <div className="rounded-2xl border border-line bg-cream p-4 shadow-card">
+  <div className="rounded-2xl border border-line bg-cream p-4 text-center shadow-card">
     <div className="text-xs font-medium uppercase tracking-wide text-muted">{label}</div>
-    <div className={`tabular-live mt-1 text-3xl font-semibold ${accent}`}>{value}</div>
+    <div className={`tabular-live mt-1 text-4xl font-semibold ${accent}`}>{value}</div>
     <div className="tabular-live mt-0.5 text-xs text-muted">alvo {target}</div>
   </div>
 )
@@ -85,7 +85,7 @@ const DebugLine: React.FC<{ frame: WsFrame | null; status: MachineStatus | null 
   if (duty == null && target == null && age == null && ready == null) return null
   const stale = age != null && age > 10000
   return (
-    <div className="tabular-live mt-1 flex flex-wrap gap-x-3 gap-y-0.5 px-1 text-[11px] text-muted">
+    <div className="tabular-live mt-1 flex flex-wrap justify-center gap-x-3 gap-y-0.5 text-[11px] text-muted">
       {duty != null && <span>duty {duty.toFixed(0)}%</span>}
       {target != null && <span>alvo {target.toFixed(1)}°C</span>}
       {age != null && (
