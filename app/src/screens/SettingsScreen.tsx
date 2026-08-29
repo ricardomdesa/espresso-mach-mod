@@ -11,7 +11,7 @@ type Feedback = { kind: 'ok' | 'error'; msg: string } | null
 const SettingsScreen: React.FC = () => {
   const { status } = useMachine()
   const { setTemp, setPID } = useMachineApi()
-  const { tempUnit, pressureUnit, setTempUnit, setPressureUnit } = useSettings()
+  const { tempUnit, setTempUnit } = useSettings()
 
   const [tempValue, setTempValue] = useState(92)
   const [pid, setPid] = useState<PIDParams>({ kp: 0, ki: 0, kd: 0 })
@@ -110,30 +110,40 @@ const SettingsScreen: React.FC = () => {
       {/* Unidades */}
       <div className={`${cardClass} mt-4`}>
         <div className={sectionTitle}>Unidades</div>
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1.5 block text-xs text-muted">Temperatura</label>
-            <select
-              value={tempUnit}
-              onChange={(e) => setTempUnit(e.target.value as 'celsius' | 'fahrenheit')}
-              className={selectClass}
-            >
-              <option value="celsius">Celsius (°C)</option>
-              <option value="fahrenheit">Fahrenheit (°F)</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs text-muted">Pressao</label>
-            <select
-              value={pressureUnit}
-              onChange={(e) => setPressureUnit(e.target.value as 'bar' | 'psi')}
-              className={selectClass}
-            >
-              <option value="bar">Bar</option>
-              <option value="psi">PSI</option>
-            </select>
-          </div>
+        <div className="mt-3">
+          <label className="mb-1.5 block text-xs text-muted">Temperatura</label>
+          <select
+            value={tempUnit}
+            onChange={(e) => setTempUnit(e.target.value as 'celsius' | 'fahrenheit')}
+            className={selectClass}
+          >
+            <option value="celsius">Celsius (°C)</option>
+            <option value="fahrenheit">Fahrenheit (°F)</option>
+          </select>
         </div>
+      </div>
+
+      {/* Informações da máquina */}
+      <div className={`${cardClass} mt-4`}>
+        <div className={sectionTitle}>Maquina</div>
+        <dl className="mt-3 space-y-2 text-sm">
+          <div className="flex items-center justify-between">
+            <dt className="text-muted">Endereco IP</dt>
+            <dd className="tabular-live font-medium text-ink">{status?.ip || '--'}</dd>
+          </div>
+          <div className="flex items-center justify-between">
+            <dt className="text-muted">Modo Wi-Fi</dt>
+            <dd className="font-medium text-ink">
+              {status?.wifiMode === 'sta'
+                ? 'Rede local'
+                : status?.wifiMode === 'ap'
+                  ? 'Configuracao (AP)'
+                  : status?.wifiMode === 'offline'
+                    ? 'Offline'
+                    : '--'}
+            </dd>
+          </div>
+        </dl>
       </div>
 
       {feedback && (

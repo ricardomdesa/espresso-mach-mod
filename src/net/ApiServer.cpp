@@ -3,6 +3,8 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <functional>
+#include <math.h>
+#include <string.h>
 
 #include "rede.h"
 
@@ -25,6 +27,8 @@ const char *modeName(MachineMode m) {
     switch (m) {
     case MachineMode::Extracting:
         return "extracting";
+    case MachineMode::Preheating:
+        return "preheating";
     case MachineMode::Heating:
         return "heating";
     case MachineMode::Error:
@@ -307,9 +311,14 @@ void ApiServer::registerRoutes() {
             sendError(request, 409, "extracao indisponivel em modo de configuracao");
             return;
         }
-        model_.timer().reset();
-        model_.timer().start();
-        model_.setPumpOn(true); // extração liga a bomba (manual ou por perfil)
+        // Com um perfil ativo utilizável, o executor assume: aquece até o
+        // setpoint do perfil e depois roda os passos da bomba. Sem perfil,
+        // cai no start manual (bomba ligada direto).
+        if (!beginProfileRun()) {
+            model_.timer().reset();
+            model_.timer().start();
+            model_.setPumpOn(true);
+        }
         broadcastEvent("extraction_started");
         sendStatus(request);
     });
@@ -319,6 +328,7 @@ void ApiServer::registerRoutes() {
             sendError(request, 401, "token invalido");
             return;
         }
+        endProfileRun(false); // cancela o executor (preheat ou passos)
         model_.timer().stop();
         model_.setPumpOn(false); // fim da extração desliga a bomba
         broadcastEvent("extraction_stopped");
@@ -523,6 +533,122 @@ void ApiServer::registerRoutes() {
     });
 }
 
+bool ApiServer::beginProfileRun() {
+    const char *id = model_.activeProfileId();
+    if (id[0] == '\0') return false;
+
+    nvs_.loadProfilesJson(g_scratchA, sizeof(g_scratchA));
+    JsonDocument doc;
+    if (deserializeJson(doc, g_scratchA)) return false;
+    JsonArrayConst arr = doc.as<JsonArrayConst>();
+    if (arr.isNull()) return false;
+
+    JsonObjectConst prof;
+    for (JsonObjectConst p : arr) {
+        if (strcmp(id, p["id"] | "") == 0) {
+            prof = p;
+            break;
+        }
+    }
+    if (prof.isNull()) return false;
+
+    JsonArrayConst steps = prof["steps"].as<JsonArrayConst>();
+    if (steps.isNull()) return false;
+
+    uint8_t n = 0;
+    for (JsonObjectConst s : steps) {
+        if (n >= kMaxProfileSteps) break;
+        const float secs = s["seconds"] | 0.0f;
+        if (secs <= 0.0f) continue; // passo sem duração: ignora
+        run_.stepSeconds[n] = (secs > 600.0f) ? 600 : static_cast<uint16_t>(secs + 0.5f);
+        run_.stepPump[n] = s["pump"] | false;
+        n++;
+    }
+    if (n == 0) return false;
+
+    run_.count = n;
+    run_.index = 0;
+    run_.inBandSinceMs = 0;
+
+    // A temperatura do perfil vira o setpoint, persistida como no ajuste manual.
+    const float temp = prof["temperature_c"] | 0.0f;
+    const bool hasTemp = temp >= 20.0f && temp <= 130.0f;
+    if (hasTemp) {
+        model_.setTempSetpoint(temp);
+        nvs_.saveTempSetpoint(temp);
+    }
+
+    model_.timer().reset();
+    model_.setPumpOn(false);
+
+    const unsigned long now = millis();
+    if (hasTemp) {
+        run_.phase = RunPhase::Preheat;
+        run_.phaseStartMs = now;
+        model_.setPreheating(true);
+    } else {
+        run_.phase = RunPhase::Steps;
+        run_.stepStartMs = now;
+        model_.setPreheating(false);
+        model_.timer().start();
+        model_.setPumpOn(run_.stepPump[0]);
+    }
+    return true;
+}
+
+void ApiServer::serviceProfileRun() {
+    if (run_.phase == RunPhase::Idle) return;
+    const unsigned long now = millis();
+
+    if (run_.phase == RunPhase::Preheat) {
+        if (now - run_.phaseStartMs > kPreheatTimeoutMs) {
+            broadcastError("tempo esgotado aquecendo para a extracao");
+            endProfileRun(true);
+            return;
+        }
+        const bool inBand =
+            fabsf(model_.tempCurrent() - model_.tempSetpoint()) <= kPreheatToleranceC;
+        if (!inBand) {
+            run_.inBandSinceMs = 0; // saiu da faixa: reinicia a contagem de estabilidade
+            return;
+        }
+        if (run_.inBandSinceMs == 0) run_.inBandSinceMs = now;
+        if (now - run_.inBandSinceMs < kPreheatStableMs) return;
+
+        // Temperatura estável: começa a sequência de passos e o cronômetro do shot.
+        run_.phase = RunPhase::Steps;
+        run_.index = 0;
+        run_.stepStartMs = now;
+        model_.setPreheating(false);
+        model_.timer().reset();
+        model_.timer().start();
+        model_.setPumpOn(run_.stepPump[0]);
+        return;
+    }
+
+    // RunPhase::Steps
+    const unsigned long stepMs = static_cast<unsigned long>(run_.stepSeconds[run_.index]) * 1000UL;
+    if (now - run_.stepStartMs < stepMs) return;
+
+    run_.index++;
+    if (run_.index >= run_.count) {
+        endProfileRun(true); // fim natural da sequência
+        return;
+    }
+    run_.stepStartMs = now;
+    model_.setPumpOn(run_.stepPump[run_.index]);
+}
+
+void ApiServer::endProfileRun(bool broadcastStopped) {
+    const bool wasActive = run_.phase != RunPhase::Idle;
+    run_.phase = RunPhase::Idle;
+    run_.inBandSinceMs = 0;
+    model_.setPreheating(false);
+    model_.timer().stop();
+    model_.setPumpOn(false);
+    if (broadcastStopped && wasActive) broadcastEvent("extraction_stopped");
+}
+
 void ApiServer::broadcastEvent(const char *event) {
     char buf[96];
     snprintf(buf, sizeof(buf), "{\"event\":\"%s\"}", event);
@@ -536,6 +662,8 @@ void ApiServer::broadcastError(const char *msg) {
 }
 
 void ApiServer::loop() {
+    serviceProfileRun(); // independente do intervalo de streaming
+
     const unsigned long now = millis();
     if (now - lastStreamMs_ < WS_STREAM_INTERVAL_MS) return;
     lastStreamMs_ = now;

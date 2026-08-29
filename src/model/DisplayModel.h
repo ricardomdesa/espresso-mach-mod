@@ -8,6 +8,7 @@
 enum class MachineMode : uint8_t {
     Idle,
     Heating,
+    Preheating, // aquecendo até o setpoint antes de rodar os passos de um perfil
     Extracting,
     Error,
 };
@@ -42,6 +43,11 @@ public:
     const char *activeProfileId() const { return activeProfileId_; }
     void setActiveProfileId(const char *id);
 
+    // Ciclo de perfil pediu aquecimento antes de rodar os passos. O ApiServer
+    // liga/desliga este flag; mode() o reporta como Preheating.
+    bool preheating() const { return preheating_; }
+    void setPreheating(bool on) { preheating_ = on; }
+
     // LED de iluminação: estado lógico da luz. O clique curto do botão físico e
     // a API (PUT /api/led) escrevem aqui; o main espelha no GPIO. Não é
     // persistido — ligado no boot.
@@ -74,6 +80,7 @@ private:
 
     bool lightOn_ = true;  // ligado no boot; app/botão alternam depois
     bool pumpOn_ = false;  // relé da bomba; desligado no boot
+    bool preheating_ = false; // ciclo de perfil aguardando temperatura
 
     Timer timer_;
 };
