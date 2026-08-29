@@ -203,6 +203,15 @@ const DashboardScreen: React.FC = () => {
   const frame = currentFrame
   const effectiveTarget =
     frame?.target ?? status?.target ?? status?.tempSetpoint ?? null
+  // Cor do número da temperatura segue o relé "pronto" da máquina (já tem
+  // histerese no firmware, então não fica piscando): verde no alvo, vermelho
+  // aquecendo, neutro quando não há status.
+  const tempAccent =
+    status?.ready === true
+      ? 'text-herb'
+      : status?.ready === false
+        ? 'text-brick'
+        : 'text-roast'
   const machineState: MachineState = frame?.state ?? 'idle'
   const isExtracting = machineState === 'extracting'
   // Enquanto aquece para a extração de um perfil a máquina ainda não está
@@ -242,7 +251,7 @@ const DashboardScreen: React.FC = () => {
           target={
             effectiveTarget != null ? temp(effectiveTarget) : '--'
           }
-          accent="text-roast"
+          accent={tempAccent}
         />
         <DebugLine frame={frame} status={status} />
       </div>

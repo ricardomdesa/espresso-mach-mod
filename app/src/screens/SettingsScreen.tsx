@@ -5,6 +5,10 @@ import { useSettings } from '../context/SettingsContext'
 import { PIDParams } from '../api/types'
 import { validatePID } from '../utils/validators'
 import Screen from '../components/Screen'
+import NumberField from '../components/NumberField'
+
+const TEMP_MIN_C = 20
+const TEMP_MAX_C = 115
 
 type Feedback = { kind: 'ok' | 'error'; msg: string } | null
 
@@ -66,17 +70,27 @@ const SettingsScreen: React.FC = () => {
       {/* Setpoint temperatura */}
       <div className={cardClass}>
         <div className={sectionTitle}>Temperatura alvo</div>
-        <div className="mt-3 flex items-baseline justify-between">
-          <span className="tabular-live text-4xl font-semibold text-roast">
-            {tempValue.toFixed(1)}
+        <div className="mt-3 flex items-center justify-between gap-3">
+          {/* Digitar direto: acertar decimais no slider é difícil. */}
+          <div className="flex items-baseline">
+            <NumberField
+              value={tempValue}
+              onChange={setTempValue}
+              min={TEMP_MIN_C}
+              max={TEMP_MAX_C}
+              ariaLabel="Temperatura alvo em graus Celsius"
+              className="tabular-live w-24 rounded-xl border border-line bg-latte px-2 py-1.5 text-3xl font-semibold text-roast outline-none focus:border-mocha"
+            />
             <span className="ml-1 text-lg text-muted">°C</span>
+          </div>
+          <span className="text-xs text-muted">
+            {TEMP_MIN_C} - {TEMP_MAX_C} °C
           </span>
-          <span className="text-xs text-muted">20 - 110 °C</span>
         </div>
         <input
           type="range"
-          min={20}
-          max={110}
+          min={TEMP_MIN_C}
+          max={TEMP_MAX_C}
           step={0.1}
           value={tempValue}
           onChange={(e) => setTempValue(parseFloat(e.target.value))}

@@ -40,7 +40,7 @@ void DisplayModel::setActiveProfileId(const char *id) {
 }
 
 float DisplayModel::tempTarget() const {
-    return steaming_ ? TEMP_STEAM_C : tempSetpoint_;
+    return steaming_ ? steamSetpoint_ : tempSetpoint_;
 }
 
 MachineMode DisplayModel::mode() const {

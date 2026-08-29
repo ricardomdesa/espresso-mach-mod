@@ -58,10 +58,17 @@ export function createApiClient(baseUrl: string, token?: string | null) {
     setPump: (on: boolean) =>
       request<MachineStatus>(baseUrl, 'PUT', '/api/pump', { on }, token),
 
-    // Modo vaporização: on => setpoint efetivo ~90 °C; off => máquina devolve o
-    // setpoint de café para 70 °C. Recusado (409) durante uma extração.
-    setSteam: (on: boolean) =>
-      request<MachineStatus>(baseUrl, 'PUT', '/api/steam', { on }, token),
+    // Modo vaporização: on => PID mira o alvo de vapor; off => máquina devolve o
+    // setpoint de café para 70 °C. `temp` opcional ajusta o alvo de vapor
+    // (80-115 °C, não persiste). Recusado (409) durante uma extração.
+    setSteam: (on: boolean, temp?: number) =>
+      request<MachineStatus>(
+        baseUrl,
+        'PUT',
+        '/api/steam',
+        temp != null ? { on, temp } : { on },
+        token,
+      ),
 
     setPID: (params: PIDParams) =>
       request<MachineStatus>(baseUrl, 'PUT', '/api/pid', params, token),

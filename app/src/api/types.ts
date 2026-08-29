@@ -33,6 +33,11 @@ export interface MachineStatus {
    */
   steam: boolean
   /**
+   * Alvo de temperatura do modo vaporização (°C). Editável (PUT /api/steam
+   * {temp}, faixa 80-115); não persiste — volta a 90 no boot da máquina.
+   */
+  steamSetpoint: number
+  /**
    * Relé "temperatura pronta" (GPIO1) fechado: caldeira no alvo, com histerese.
    * Para extração manual sem o app.
    */

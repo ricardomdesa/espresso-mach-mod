@@ -11,7 +11,7 @@
 
 namespace {
 
-constexpr size_t kStatusJsonSize = 736;
+constexpr size_t kStatusJsonSize = 768;
 constexpr size_t kFrameJsonSize = 288;
 constexpr size_t kMaxBodyBytes = 4096;
 
@@ -120,14 +120,16 @@ void ApiServer::buildStatusJson(char *out, size_t outLen) const {
     snprintf(out, outLen,
              "{\"api\":%d,\"temp\":%.2f,\"press\":%.2f,\"tempSetpoint\":%.2f,"
              "\"pressSetpoint\":%.2f,\"timer\":%.1f,\"state\":\"%s\",\"profile\":%s,"
-             "\"led\":%s,\"pump\":%s,\"steam\":%s,\"ready\":%s,\"duty\":%.1f,\"target\":%.2f,"
+             "\"led\":%s,\"pump\":%s,\"steam\":%s,\"steamSetpoint\":%.2f,\"ready\":%s,"
+             "\"duty\":%.1f,\"target\":%.2f,"
              "\"sensAgeMs\":%lu,\"uptime\":%lu,\"wifiMode\":\"%s\",\"ip\":\"%s\","
              "\"pid\":{\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f},\"heap\":%lu}",
              API_VERSION, model_.tempCurrent(), model_.pressureCurrent(),
              model_.tempSetpoint(), model_.pressureSetpoint(),
              model_.timer().elapsedMs() / 1000.0f, modeName(model_.mode()), profileField,
              model_.lightOn() ? "true" : "false", model_.pumpOn() ? "true" : "false",
-             model_.steaming() ? "true" : "false", model_.ready() ? "true" : "false",
+             model_.steaming() ? "true" : "false", model_.steamSetpoint(),
+             model_.ready() ? "true" : "false",
              model_.dutyPct(), model_.tempTarget(), model_.sensorAgeMs(),
              millis() / 1000UL, wifiMode,
              wifi_.ip().toString().c_str(), model_.pid().kp, model_.pid().ki, model_.pid().kd,
@@ -283,8 +285,9 @@ void ApiServer::registerRoutes() {
                    sendStatus(request);
                });
 
-    // Modo vaporização: liga (setpoint efetivo -> TEMP_STEAM_C, sem NVS) ou
+    // Modo vaporização: liga (alvo efetivo -> steamSetpoint, sem NVS) ou
     // desliga (devolve o setpoint de café para TEMP_BREW_DEFAULT_C, persistido).
+    // Campo opcional "temp": ajusta o alvo de vapor (80-115 °C, não persiste).
     // Recusado durante uma extração/perfil em andamento — lá quem manda no
     // setpoint é o executor do perfil.
     onJsonBody(server_, "/api/steam", HTTP_PUT,
@@ -302,8 +305,21 @@ void ApiServer::registerRoutes() {
                        sendError(request, 409, "vaporizacao indisponivel durante extracao");
                        return;
                    }
+                   // Alvo de vapor opcional: valida antes de mexer no estado.
+                   if (body["temp"].is<float>()) {
+                       const float t = body["temp"].as<float>();
+                       if (t < TEMP_STEAM_MIN_C || t > TEMP_STEAM_MAX_C) {
+                           sendError(request, 400, "temp de vapor fora da faixa (80-115)");
+                           return;
+                       }
+                       model_.setSteamSetpoint(t);
+                   }
+                   const bool wasSteaming = model_.steaming();
                    model_.setSteaming(on);
-                   if (!on) {
+                   // Só devolve o setpoint de café na transição liga->desliga —
+                   // não a cada ajuste de alvo com o vapor já desligado (evita
+                   // regravar 70 na NVS à toa).
+                   if (wasSteaming && !on) {
                        model_.setTempSetpoint(TEMP_BREW_DEFAULT_C);
                        nvs_.saveTempSetpoint(TEMP_BREW_DEFAULT_C);
                    }

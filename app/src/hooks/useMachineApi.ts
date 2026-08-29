@@ -33,9 +33,9 @@ export function useMachineApi() {
   )
 
   const setSteam = useCallback(
-    async (on: boolean) => {
+    async (on: boolean, temp?: number) => {
       if (!api) throw new Error('Not connected')
-      await api.setSteam(on)
+      await api.setSteam(on, temp)
       await refreshStatus()
     },
     [api, refreshStatus],

@@ -26,11 +26,17 @@ constexpr unsigned long SENSOR_FAULT_TIMEOUT_MS = 10000UL;
 constexpr float TEMP_MAX_SAFETY_C = 115.0f;
 
 // Modo vaporização (app liga via PUT /api/steam {on:true}). Enquanto ativo o
-// PID mira TEMP_STEAM_C em vez do setpoint de café — sem gravar NVS. Ao
-// desligar, o firmware devolve o setpoint para TEMP_BREW_DEFAULT_C (decisão de
-// produto: "sempre volta pra 70", ver DisplayModel::tempSetpoint_).
-constexpr float TEMP_STEAM_C = 90.0f;
+// PID mira o alvo de vapor (DisplayModel::steamSetpoint_) em vez do setpoint de
+// café — sem gravar NVS. Ao desligar, o firmware devolve o setpoint de café
+// para TEMP_BREW_DEFAULT_C (decisão de produto: "sempre volta pra 70", ver
+// DisplayModel::tempSetpoint_).
+constexpr float TEMP_STEAM_C = 90.0f; // default do alvo de vapor (não persiste)
 constexpr float TEMP_BREW_DEFAULT_C = 70.0f;
+
+// Faixa aceita para o alvo de vapor editável (PUT /api/steam {temp}). Teto = o
+// próprio teto de segurança; piso evita "vapor" que quase não gera vapor.
+constexpr float TEMP_STEAM_MIN_C = 80.0f;
+constexpr float TEMP_STEAM_MAX_C = TEMP_MAX_SAFETY_C;
 
 // Relé "temperatura pronta" (PIN_READY). Histerese em torno do alvo efetivo do
 // PID (café ou vapor): fecha o relé quando a caldeira encosta no alvo, só abre

@@ -37,7 +37,7 @@ public:
     void setTempSetpoint(float v) { tempSetpoint_ = v; }
     void setPressureSetpoint(float v) { pressureSetpoint_ = v; }
 
-    // Alvo efetivo que o PID persegue: TEMP_STEAM_C quando o modo vaporização
+    // Alvo efetivo que o PID persegue: steamSetpoint_ quando o modo vaporização
     // está ligado, senão o setpoint de café. Definido no .cpp (usa controle.h).
     float tempTarget() const;
 
@@ -46,6 +46,11 @@ public:
     // tempSetpoint_ para TEMP_BREW_DEFAULT_C.
     bool steaming() const { return steaming_; }
     void setSteaming(bool on) { steaming_ = on; }
+
+    // Alvo de temperatura do modo vaporização. Editável por PUT /api/steam
+    // {temp}; NÃO persiste — volta ao default (90 °C) a cada boot.
+    float steamSetpoint() const { return steamSetpoint_; }
+    void setSteamSetpoint(float v) { steamSetpoint_ = v; }
 
     // Telemetria de debug da malha de temperatura. O main escreve a cada loop
     // (duty do PID, idade da última leitura válida do termopar); a API só
@@ -111,7 +116,8 @@ private:
     bool lightOn_ = true;  // ligado no boot; app/botão alternam depois
     bool pumpOn_ = false;  // relé da bomba; desligado no boot
     bool preheating_ = false; // ciclo de perfil aguardando temperatura
-    bool steaming_ = false;   // modo vaporização (PID mira TEMP_STEAM_C)
+    bool steaming_ = false;   // modo vaporização (PID mira steamSetpoint_)
+    float steamSetpoint_ = 90.0f; // alvo de vapor (= TEMP_STEAM_C); não persiste
 
     float dutyPct_ = 0.0f;         // duty do PID (0..100), escrito pelo main
     unsigned long sensorAgeMs_ = 0; // idade da última leitura válida do termopar
