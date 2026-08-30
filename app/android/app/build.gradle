@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "com.philco.mod"
+    namespace "com.rmdsistemas.espresso"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.philco.mod"
+        applicationId "com.rmdsistemas.espresso"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

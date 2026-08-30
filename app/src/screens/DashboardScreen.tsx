@@ -166,7 +166,7 @@ const DashboardScreen: React.FC = () => {
   }
 
   return (
-    <Screen title="Philco Mod" showConnection>
+    <Screen title="ESPresso" showConnection>
       {machineError && (
         <div className="mb-4 rounded-xl border border-brick/30 bg-brick/10 px-4 py-3 text-sm text-brick">
           <span className="font-semibold">Maquina reportou erro:</span> {machineError}

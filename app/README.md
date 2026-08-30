@@ -1,4 +1,4 @@
-# Philco Mod App
+# ESPresso App
 
 App Android para controle e configuração da cafeteira Philco Espresso Modificada.
 

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bean" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7A4529"/>
+      <stop offset="0.55" stop-color="#5A3320"/>
+      <stop offset="1" stop-color="#3B2213"/>
+    </linearGradient>
+  </defs>
+  <!-- adaptive foreground: bean kept inside the center safe zone -->
+  <g transform="translate(512 512) rotate(-20)">
+    <ellipse rx="205" ry="298" fill="url(#bean)"/>
+    <path d="M0,-286 C 150,-150 -150,-30 0,96 C 120,200 -30,236 0,286"
+          fill="none" stroke="#2C1A0F" stroke-width="42" stroke-linecap="round"/>
+    <path d="M0,-286 C 150,-150 -150,-30 0,96 C 120,200 -30,236 0,286"
+          fill="none" stroke="#9A6540" stroke-width="12" stroke-linecap="round" opacity="0.65"/>
+    <ellipse cx="-72" cy="-118" rx="58" ry="112" fill="#FFFFFF" opacity="0.10"/>
+  </g>
+</svg>
