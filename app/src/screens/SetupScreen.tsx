@@ -101,7 +101,7 @@ const SetupScreen: React.FC = () => {
             <path d="M8 2.5V5M12 2.5V5" strokeLinecap="round" />
             <path d="M3 21h16" strokeLinecap="round" />
           </svg>
-          <h1 className="mt-3 text-2xl font-bold tracking-tight text-ink">Philco Mod</h1>
+          <h1 className="mt-3 text-2xl font-bold tracking-tight text-ink">ESPresso</h1>
           <p className="mt-1 text-sm text-muted">Controle da sua espresso</p>
         </div>
 

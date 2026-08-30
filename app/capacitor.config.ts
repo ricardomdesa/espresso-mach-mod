@@ -1,8 +1,8 @@
 import { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
-  appId: 'com.philco.mod',
-  appName: 'Philco Mod',
+  appId: 'com.rmdsistemas.espresso',
+  appName: 'ESPresso',
   webDir: 'dist',
   server: {
     // A máquina só fala HTTP/WS em texto claro na rede local. Com o esquema

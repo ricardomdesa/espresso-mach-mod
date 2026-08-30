@@ -1,4 +1,4 @@
-package com.philco.mod;
+package com.rmdsistemas.espresso;
 
 import android.content.Context;
 import android.net.ConnectivityManager;
