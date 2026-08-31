@@ -27,11 +27,15 @@
 #define PIN_THERMO_SO 6  // GPIO6 — SPI SO/MISO do amplificador (leitura)
 #define PIN_THERMO_CS 7  // GPIO7 — SPI CS do amplificador
 
-// GPIO10 -> entrada "+" do SSR GN 84136121 (25A, entrada DC 3,5-32V), "-" no
-// GND comum. Datasheet pede min. 3,5V e o GPIO só dá 3,3V — ACIONAMENTO A
-// VALIDAR EM BANCADA antes de confiar nisso com a carga real. Se não acionar
-// direto, precisa de estágio driver (transistor/MOSFET) alimentado em 5V.
-#define PIN_ACTUATOR 10 // GPIO10 — sinal "+" do SSR de aquecimento (ativo HIGH, a confirmar)
+// GPIO10 -> driver TIP120 (Darlington NPN) que aciona o SSR GN 84136121
+// (25A, entrada DC 3,5-32V). O GPIO só dá 3,3V e o datasheet do SSR pede
+// min. 3,5V, por isso o estágio driver: GPIO10 --[1k]--> base do TIP120,
+// resistor de 10k da base p/ GND (mantém o TIP120 cortado enquanto o GPIO
+// flutua no boot). Coletor no "-" da entrada do SSR, emissor no GND comum,
+// "+" da entrada do SSR no trilho de 5V (LM317 4,66V). Lógica não inverte:
+// GPIO10 em HIGH satura o TIP120, puxa o "-" do SSR ao GND e o SSR conduz.
+// Queda Vce(sat) do Darlington ~1V, o SSR vê ~3,6-4V — acima do limiar.
+#define PIN_ACTUATOR 10 // GPIO10 — base do driver TIP120 do SSR de aquecimento (ativo HIGH)
 
 // GPIO0 -> entrada de sinal do módulo de relé que aciona a bomba (liga/
 // desliga). No ESP32-C3 o GPIO0 não é strapping pin (só serve de XTAL_32K_P,
