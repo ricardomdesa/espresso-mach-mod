@@ -42,3 +42,13 @@
 #define PIN_PUMP 0      // GPIO0 — sinal do relé da bomba
 #define PUMP_ACTIVE LOW // nível que liga a bomba (módulo active-low)
 #define PUMP_IDLE HIGH  // nível que desliga a bomba
+
+// GPIO1 -> relé "temperatura pronta". Fecha quando a caldeira chega no alvo
+// (com histerese, ver controle.h) e abre se cair bem abaixo ou o sensor
+// falhar. Serve pra extração manual sem o app: um contato seco sinalizando
+// "pode puxar o shot". GPIO1 no ESP32-C3 é ADC1_CH1, sem função de strapping,
+// livre como saída digital. Assume o MESMO módulo de relé active-low da bomba
+// — A CONFIRMAR em bancada; se for active-high, inverter os dois defines.
+#define PIN_READY 1       // GPIO1 — sinal do relé de "temperatura pronta"
+#define READY_ACTIVE LOW  // nível que fecha o relé (temperatura ok)
+#define READY_IDLE HIGH   // nível que abre o relé

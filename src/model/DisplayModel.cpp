@@ -16,6 +16,18 @@ DisplayModel::DisplayModel(ISensor &tempSensor, ISensor &pressureSensor)
 void DisplayModel::update() {
     tempCurrent_ = tempSensor_.read();
     pressureCurrent_ = pressureSensor_.read();
+
+    // Relé "temperatura pronta" com histerese em torno do alvo efetivo. O
+    // sensorAgeMs_ vem do main (leitura do loop anterior — defasagem de um
+    // ciclo, irrelevante). Sensor em falha derruba o relé.
+    const float target = tempTarget();
+    if (sensorAgeMs_ >= SENSOR_FAULT_TIMEOUT_MS) {
+        ready_ = false;
+    } else if (tempCurrent_ >= target - READY_ON_MARGIN_C) {
+        ready_ = true;
+    } else if (tempCurrent_ < target - READY_OFF_MARGIN_C) {
+        ready_ = false;
+    }
 }
 
 void DisplayModel::setActiveProfileId(const char *id) {
@@ -28,7 +40,7 @@ void DisplayModel::setActiveProfileId(const char *id) {
 }
 
 float DisplayModel::tempTarget() const {
-    return steaming_ ? TEMP_STEAM_C : tempSetpoint_;
+    return steaming_ ? steamSetpoint_ : tempSetpoint_;
 }
 
 MachineMode DisplayModel::mode() const {
@@ -41,7 +53,9 @@ MachineMode DisplayModel::mode() const {
     if (steaming_) {
         return MachineMode::Steaming;
     }
-    if (fabsf(tempCurrent_ - tempTarget()) > kTempToleranceC) {
+    // Só "aquecendo" quando de fato abaixo do alvo (SSR trabalhando). Acima do
+    // alvo a caldeira está só coasting pra baixo — reporta Idle, não Heating.
+    if (tempCurrent_ < tempTarget() - kTempToleranceC) {
         return MachineMode::Heating;
     }
     return MachineMode::Idle;

@@ -5,6 +5,13 @@
 PidController::PidController(DisplayModel &model, SensorMax6675 &tempRaw)
     : model_(model), tempRaw_(tempRaw) {}
 
+void PidController::reset() {
+    duty_ = 0.0f;
+    integral_ = 0.0f;
+    lastTemp_ = 0.0f;
+    lastMs_ = 0; // força a próxima passada a só semear o estado
+}
+
 void PidController::update() {
     const unsigned long now = millis();
     if (lastMs_ != 0 && now - lastMs_ < PID_INTERVAL_MS) return;

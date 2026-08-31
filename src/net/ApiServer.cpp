@@ -11,8 +11,8 @@
 
 namespace {
 
-constexpr size_t kStatusJsonSize = 608;
-constexpr size_t kFrameJsonSize = 224;
+constexpr size_t kStatusJsonSize = 768;
+constexpr size_t kFrameJsonSize = 288;
 constexpr size_t kMaxBodyBytes = 4096;
 
 const char *kJson = "application/json";
@@ -120,13 +120,17 @@ void ApiServer::buildStatusJson(char *out, size_t outLen) const {
     snprintf(out, outLen,
              "{\"api\":%d,\"temp\":%.2f,\"press\":%.2f,\"tempSetpoint\":%.2f,"
              "\"pressSetpoint\":%.2f,\"timer\":%.1f,\"state\":\"%s\",\"profile\":%s,"
-             "\"led\":%s,\"pump\":%s,\"steam\":%s,\"uptime\":%lu,\"wifiMode\":\"%s\",\"ip\":\"%s\","
+             "\"led\":%s,\"pump\":%s,\"steam\":%s,\"steamSetpoint\":%.2f,\"ready\":%s,"
+             "\"duty\":%.1f,\"target\":%.2f,"
+             "\"sensAgeMs\":%lu,\"uptime\":%lu,\"wifiMode\":\"%s\",\"ip\":\"%s\","
              "\"pid\":{\"kp\":%.3f,\"ki\":%.3f,\"kd\":%.3f},\"heap\":%lu}",
              API_VERSION, model_.tempCurrent(), model_.pressureCurrent(),
              model_.tempSetpoint(), model_.pressureSetpoint(),
              model_.timer().elapsedMs() / 1000.0f, modeName(model_.mode()), profileField,
              model_.lightOn() ? "true" : "false", model_.pumpOn() ? "true" : "false",
-             model_.steaming() ? "true" : "false",
+             model_.steaming() ? "true" : "false", model_.steamSetpoint(),
+             model_.ready() ? "true" : "false",
+             model_.dutyPct(), model_.tempTarget(), model_.sensorAgeMs(),
              millis() / 1000UL, wifiMode,
              wifi_.ip().toString().c_str(), model_.pid().kp, model_.pid().ki, model_.pid().kd,
              (unsigned long)ESP.getFreeHeap());
@@ -281,8 +285,9 @@ void ApiServer::registerRoutes() {
                    sendStatus(request);
                });
 
-    // Modo vaporização: liga (setpoint efetivo -> TEMP_STEAM_C, sem NVS) ou
+    // Modo vaporização: liga (alvo efetivo -> steamSetpoint, sem NVS) ou
     // desliga (devolve o setpoint de café para TEMP_BREW_DEFAULT_C, persistido).
+    // Campo opcional "temp": ajusta o alvo de vapor (80-115 °C, não persiste).
     // Recusado durante uma extração/perfil em andamento — lá quem manda no
     // setpoint é o executor do perfil.
     onJsonBody(server_, "/api/steam", HTTP_PUT,
@@ -300,8 +305,21 @@ void ApiServer::registerRoutes() {
                        sendError(request, 409, "vaporizacao indisponivel durante extracao");
                        return;
                    }
+                   // Alvo de vapor opcional: valida antes de mexer no estado.
+                   if (body["temp"].is<float>()) {
+                       const float t = body["temp"].as<float>();
+                       if (t < TEMP_STEAM_MIN_C || t > TEMP_STEAM_MAX_C) {
+                           sendError(request, 400, "temp de vapor fora da faixa (80-115)");
+                           return;
+                       }
+                       model_.setSteamSetpoint(t);
+                   }
+                   const bool wasSteaming = model_.steaming();
                    model_.setSteaming(on);
-                   if (!on) {
+                   // Só devolve o setpoint de café na transição liga->desliga —
+                   // não a cada ajuste de alvo com o vapor já desligado (evita
+                   // regravar 70 na NVS à toa).
+                   if (wasSteaming && !on) {
                        model_.setTempSetpoint(TEMP_BREW_DEFAULT_C);
                        nvs_.saveTempSetpoint(TEMP_BREW_DEFAULT_C);
                    }
@@ -342,18 +360,17 @@ void ApiServer::registerRoutes() {
             sendError(request, 409, "extracao indisponivel em modo de configuracao");
             return;
         }
-        // Extração assume o controle do setpoint; sai do modo vaporização se
-        // estava ligado (o executor do perfil grava o próprio setpoint).
-        model_.setSteaming(false);
-        // Com um perfil ativo utilizável, o executor assume: aquece até o
-        // setpoint do perfil e depois roda os passos da bomba. Sem perfil,
-        // cai no start manual (bomba ligada direto).
-        if (!beginProfileRun()) {
-            model_.timer().reset();
-            model_.timer().start();
-            model_.setPumpOn(true);
+        // Já em andamento (executor OU start manual, ou start pendente): recusa
+        // em vez de re-entrar em beginProfileRun() — que regravaria o setpoint
+        // na NVS e sobrescreveria run_ enquanto a task do loop o percorre.
+        if (extracting_ || startReq_) {
+            sendError(request, 409, "extracao ja em andamento");
+            return;
         }
-        broadcastEvent("extraction_started");
+        // O trabalho real (setSteaming/beginProfileRun/timer/bomba) roda na task
+        // do loop() — ver ApiServer::loop(). Aqui só sinaliza, pra run_ nunca
+        // ser mutada de duas tasks.
+        startReq_ = true;
         sendStatus(request);
     });
 
@@ -362,10 +379,8 @@ void ApiServer::registerRoutes() {
             sendError(request, 401, "token invalido");
             return;
         }
-        endProfileRun(false); // cancela o executor (preheat ou passos)
-        model_.timer().stop();
-        model_.setPumpOn(false); // fim da extração desliga a bomba
-        broadcastEvent("extraction_stopped");
+        // Idem: o stop efetivo (endProfileRun/timer/bomba) roda na task do loop().
+        stopReq_ = true;
         sendStatus(request);
     });
 
@@ -640,10 +655,13 @@ void ApiServer::serviceProfileRun() {
             endProfileRun(true);
             return;
         }
+        // "Pronto" = caldeira no alvo OU acima (menos a tolerância). Esperar ela
+        // DESCER até setpoint±tol seria inútil: para espresso basta estar quente
+        // o suficiente, e o resfriamento passivo leva minutos.
         const bool inBand =
-            fabsf(model_.tempCurrent() - model_.tempSetpoint()) <= kPreheatToleranceC;
+            model_.tempCurrent() >= model_.tempSetpoint() - kPreheatToleranceC;
         if (!inBand) {
-            run_.inBandSinceMs = 0; // saiu da faixa: reinicia a contagem de estabilidade
+            run_.inBandSinceMs = 0; // ainda abaixo do alvo: reinicia a contagem de estabilidade
             return;
         }
         if (run_.inBandSinceMs == 0) run_.inBandSinceMs = now;
@@ -680,6 +698,7 @@ void ApiServer::endProfileRun(bool broadcastStopped) {
     model_.setPreheating(false);
     model_.timer().stop();
     model_.setPumpOn(false);
+    extracting_ = false; // libera novo /api/extraction/start
     if (broadcastStopped && wasActive) broadcastEvent("extraction_stopped");
 }
 
@@ -696,6 +715,34 @@ void ApiServer::broadcastError(const char *msg) {
 }
 
 void ApiServer::loop() {
+    // Consome os pedidos de start/stop erguidos pelos handlers HTTP (task
+    // AsyncTCP). Fazer aqui, na task do loop(), garante que run_ e a bomba só
+    // são mexidas por uma task — sem isto um stop podia zerar run_.phase logo
+    // depois do guard de serviceProfileRun(), que então religava a bomba sem
+    // timer.
+    if (stopReq_) {
+        stopReq_ = false;
+        startReq_ = false; // stop pendente cancela um start pendente
+        endProfileRun(false);
+        model_.timer().stop();
+        model_.setPumpOn(false);
+        broadcastEvent("extraction_stopped");
+    }
+    if (startReq_ && !extracting_) {
+        startReq_ = false;
+        // Extração assume o controle do setpoint; sai do modo vaporização.
+        model_.setSteaming(false);
+        // Com perfil ativo utilizável, o executor assume (preheat + passos).
+        // Sem perfil, start manual: bomba ligada direto.
+        if (!beginProfileRun()) {
+            model_.timer().reset();
+            model_.timer().start();
+            model_.setPumpOn(true);
+        }
+        extracting_ = true;
+        broadcastEvent("extraction_started");
+    }
+
     serviceProfileRun(); // independente do intervalo de streaming
 
     const unsigned long now = millis();
@@ -716,8 +763,9 @@ void ApiServer::loop() {
     char frame[kFrameJsonSize];
     snprintf(frame, sizeof(frame),
              "{\"t\":%lu,\"temp\":%.2f,\"press\":%.2f,\"timer\":%.1f,\"state\":\"%s\","
-             "\"profile\":%s}",
+             "\"profile\":%s,\"duty\":%.1f,\"target\":%.2f,\"sensAgeMs\":%lu}",
              now, model_.tempCurrent(), model_.pressureCurrent(),
-             model_.timer().elapsedMs() / 1000.0f, modeName(model_.mode()), profileField);
+             model_.timer().elapsedMs() / 1000.0f, modeName(model_.mode()), profileField,
+             model_.dutyPct(), model_.tempTarget(), model_.sensorAgeMs());
     ws_.textAll(frame);
 }

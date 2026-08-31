@@ -58,9 +58,19 @@ export function useLocalHistory() {
     [save],
   )
 
+  const update = useCallback(
+    async (id: string, patch: Partial<ExtractionRecord>) => {
+      const updated = recordsRef.current.map((r) =>
+        r.id === id ? { ...r, ...patch } : r,
+      )
+      await save(updated)
+    },
+    [save],
+  )
+
   const clear = useCallback(async () => {
     await save([])
   }, [save])
 
-  return { records, loaded, add, remove, clear, reload: load }
+  return { records, loaded, add, remove, update, clear, reload: load }
 }

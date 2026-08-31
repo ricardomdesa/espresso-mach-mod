@@ -6,7 +6,7 @@ import { useLocalHistory } from '../hooks/useLocalHistory'
 import Screen from '../components/Screen'
 import TimerDisplay from '../components/TimerDisplay'
 import LiveChart from '../components/LiveChart'
-import { MachineState, WsFrame } from '../api/types'
+import { MachineState, MachineStatus, WsFrame } from '../api/types'
 
 const stateLabel: Record<MachineState, string> = {
   idle: 'Ocioso',
@@ -34,9 +34,9 @@ interface StatCardProps {
 }
 
 const StatCard: React.FC<StatCardProps> = ({ label, value, target, accent }) => (
-  <div className="rounded-2xl border border-line bg-cream p-4 shadow-card">
+  <div className="rounded-2xl border border-line bg-cream p-4 text-center shadow-card">
     <div className="text-xs font-medium uppercase tracking-wide text-muted">{label}</div>
-    <div className={`tabular-live mt-1 text-3xl font-semibold ${accent}`}>{value}</div>
+    <div className={`tabular-live mt-1 text-4xl font-semibold ${accent}`}>{value}</div>
     <div className="tabular-live mt-0.5 text-xs text-muted">alvo {target}</div>
   </div>
 )
@@ -71,6 +71,37 @@ const ControlToggle: React.FC<ControlToggleProps> = ({ label, on, disabled, onTo
   </button>
 )
 
+// Linha de debug da malha de temperatura (dados via /ws ou /api/status).
+// Duty do PID, alvo efetivo e idade da ultima leitura do termopar — util
+// pra diagnosticar preheat/failsafe sem serial no PC.
+const DebugLine: React.FC<{ frame: WsFrame | null; status: MachineStatus | null }> = ({
+  frame,
+  status,
+}) => {
+  const duty = frame?.duty ?? status?.duty
+  const target = frame?.target ?? status?.target
+  const age = frame?.sensAgeMs ?? status?.sensAgeMs
+  const ready = status?.ready
+  if (duty == null && target == null && age == null && ready == null) return null
+  const stale = age != null && age > 10000
+  return (
+    <div className="tabular-live mt-1 flex flex-wrap justify-center gap-x-3 gap-y-0.5 text-[11px] text-muted">
+      {duty != null && <span>duty {duty.toFixed(0)}%</span>}
+      {target != null && <span>alvo {target.toFixed(1)}°C</span>}
+      {age != null && (
+        <span className={stale ? 'font-semibold text-brick' : ''}>
+          sensor {(age / 1000).toFixed(1)}s{stale ? ' (falha)' : ''}
+        </span>
+      )}
+      {ready != null && (
+        <span className={ready ? 'font-semibold text-herb' : ''}>
+          rele {ready ? 'pronto' : 'aguardando'}
+        </span>
+      )}
+    </div>
+  )
+}
+
 const DashboardScreen: React.FC = () => {
   const { currentFrame, status, connected, lastEvent, profiles, refreshProfiles } = useMachine()
   const { temp } = useFormatters()
@@ -85,6 +116,14 @@ const DashboardScreen: React.FC = () => {
   // para fora e voltou no meio do shot), sessionFramesRef só tem o rabo da
   // sessão — a média não pode ser cruzada com o timer cheio da máquina.
   const sessionIncompleteRef = useRef(false)
+  // `profiles` só é lido pra resolver o nome do perfil ao gravar o histórico.
+  // Mantido num ref pra NÃO entrar no dep array do efeito de gravação — senão
+  // um refreshProfiles() no meio do shot re-dispara o efeito com o mesmo
+  // currentFrame e empurra a amostra duas vezes.
+  const profilesRef = useRef(profiles)
+  useEffect(() => {
+    profilesRef.current = profiles
+  }, [profiles])
 
   // O frame/status trazem o ID do perfil ativo (ex.: "p3"); a tela mostra o nome.
   useEffect(() => {
@@ -118,7 +157,22 @@ const DashboardScreen: React.FC = () => {
         const pressAvg = frames.reduce((s, f) => s + f.press, 0) / frames.length
         const last = frames[frames.length - 1]
         const name =
-          profiles.find((p) => p.id === last.profile)?.name ?? last.profile ?? 'Sem perfil'
+          profilesRef.current.find((p) => p.id === last.profile)?.name ??
+          last.profile ??
+          'Sem perfil'
+        // Amostra a curva pra ~120 pontos: 100ms/frame cheio estoura o
+        // Preferences com 500 registros guardados. 1 ponto/s ja descreve a
+        // oscilacao da caldeira.
+        const round1 = (n: number) => Math.round(n * 10) / 10
+        const t0 = frames[0].t
+        const stride = Math.max(1, Math.ceil(frames.length / 120))
+        const samples = frames
+          .filter((_, i) => i % stride === 0 || i === frames.length - 1)
+          .map((f) => ({
+            t: f.t - t0,
+            temp: round1(f.temp),
+            target: f.target != null ? round1(f.target) : undefined,
+          }))
         addHistoryRecord({
           id: `${Date.now()}`,
           date: new Date().toISOString(),
@@ -126,6 +180,8 @@ const DashboardScreen: React.FC = () => {
           profileName: name,
           tempAvg,
           pressAvg,
+          tempTarget: last.target != null ? round1(last.target) : undefined,
+          samples,
         })
       }
       sessionFramesRef.current = []
@@ -133,7 +189,7 @@ const DashboardScreen: React.FC = () => {
       // limpar grafico apos a extração
       setChartData([])
     }
-  }, [currentFrame, addHistoryRecord, profiles])
+  }, [currentFrame, addHistoryRecord])
 
   const runControl = async (fn: () => Promise<unknown>) => {
     setError(null)
@@ -145,6 +201,17 @@ const DashboardScreen: React.FC = () => {
   }
 
   const frame = currentFrame
+  const effectiveTarget =
+    frame?.target ?? status?.target ?? status?.tempSetpoint ?? null
+  // Cor do número da temperatura segue o relé "pronto" da máquina (já tem
+  // histerese no firmware, então não fica piscando): verde no alvo, vermelho
+  // aquecendo, neutro quando não há status.
+  const tempAccent =
+    status?.ready === true
+      ? 'text-herb'
+      : status?.ready === false
+        ? 'text-brick'
+        : 'text-roast'
   const machineState: MachineState = frame?.state ?? 'idle'
   const isExtracting = machineState === 'extracting'
   // Enquanto aquece para a extração de um perfil a máquina ainda não está
@@ -178,9 +245,15 @@ const DashboardScreen: React.FC = () => {
         <StatCard
           label="Temperatura"
           value={frame ? temp(frame.temp) : '--'}
-          target={status ? temp(status.tempSetpoint) : '--'}
-          accent="text-roast"
+          // Alvo efetivo do PID (frame/status.target): em vaporização o firmware
+          // mira ~90 °C sem tocar em tempSetpoint, então tempSetpoint daria o
+          // número errado durante o vapor — só serve de fallback.
+          target={
+            effectiveTarget != null ? temp(effectiveTarget) : '--'
+          }
+          accent={tempAccent}
         />
+        <DebugLine frame={frame} status={status} />
       </div>
 
       {/* Timer + estado (protagonista durante o shot) */}

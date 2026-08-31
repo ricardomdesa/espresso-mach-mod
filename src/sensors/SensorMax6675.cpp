@@ -12,8 +12,11 @@ float SensorMax6675::read() {
     lastReadMs_ = now;
 
     const float c = dev_.readCelsius();
-    // NAN = termopar aberto/desconectado. Fora de 0..400 °C = ruído/curto.
-    if (isnan(c) || c < 0.0f || c > 400.0f) {
+    // NAN = termopar aberto/desconectado. <= 0 °C = SO flutuando/curto p/ GND
+    // (todos os bits zero): dentro de uma máquina de espresso 0 °C nunca é real,
+    // então trata como falha em vez de confiar e travar o PID em duty 100 %.
+    // > 400 °C = ruído/curto p/ VCC.
+    if (isnan(c) || c <= 0.0f || c > 400.0f) {
         // Log no máximo a cada 5 s: sem termopar isto seria dezenas de linhas/min.
         if (lastFaultLogMs_ == 0 || now - lastFaultLogMs_ >= 5000UL) {
             Serial.println(F("[temp] leitura invalida do termopar; mantendo ultimo valor"));

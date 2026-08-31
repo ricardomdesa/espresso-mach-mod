@@ -32,6 +32,22 @@ export interface MachineStatus {
    * setpoint de café para 70 °C.
    */
   steam: boolean
+  /**
+   * Alvo de temperatura do modo vaporização (°C). Editável (PUT /api/steam
+   * {temp}, faixa 80-115); não persiste — volta a 90 no boot da máquina.
+   */
+  steamSetpoint: number
+  /**
+   * Relé "temperatura pronta" (GPIO1) fechado: caldeira no alvo, com histerese.
+   * Para extração manual sem o app.
+   */
+  ready: boolean
+  /** Debug da malha: duty do PID 0..100 %. */
+  duty: number
+  /** Debug da malha: alvo efetivo do PID (setpoint de cafe ou ~90 em vapor). */
+  target: number
+  /** Debug: ms desde a ultima leitura valida do termopar (grande = falha). */
+  sensAgeMs: number
   uptime: number
   wifiMode: 'ap' | 'sta' | 'offline'
   pid: PIDParams
@@ -73,6 +89,12 @@ export interface WsFrame {
   timer: number
   state: MachineState
   profile: string | null
+  /** Debug da malha: duty do PID 0..100 %. */
+  duty?: number
+  /** Debug da malha: alvo efetivo do PID. */
+  target?: number
+  /** Debug: ms desde a ultima leitura valida do termopar. */
+  sensAgeMs?: number
 }
 
 export type WsEvent =
@@ -81,6 +103,14 @@ export type WsEvent =
   | { event: 'error'; msg: string }
   | { event: 'pong' }
 
+export interface ExtractionSample {
+  /** ms desde o inicio da extracao. */
+  t: number
+  temp: number
+  /** Alvo efetivo do PID naquele instante, quando disponivel. */
+  target?: number
+}
+
 export interface ExtractionRecord {
   id: string
   date: string
@@ -88,5 +118,13 @@ export interface ExtractionRecord {
   profileName: string
   tempAvg: number
   pressAvg: number
+  /** Alvo de temperatura vigente no fim da extracao (setpoint do perfil). */
+  tempTarget?: number
+  /**
+   * Curva de temperatura amostrada (~1 ponto/s, no maximo ~120 pontos) para
+   * revisao posterior no historico. Ausente em registros antigos.
+   */
+  samples?: ExtractionSample[]
+  /** Anotacoes livres do usuario (moagem, dose, sabor...). Editavel depois. */
   notes?: string
 }
