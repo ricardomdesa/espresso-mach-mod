@@ -34,6 +34,12 @@ const SteamScreen: React.FC = () => {
     if (!editing) setDraftTarget(target)
   }, [target, editing])
 
+  // O alvo só é editável com a vaporização desligada — deixa claro que o valor
+  // ajustado passa a valer quando ligar. Se ligar com o editor aberto, fecha.
+  useEffect(() => {
+    if (steaming) setEditing(false)
+  }, [steaming])
+
   const pct =
     current == null ? 0 : Math.max(0, Math.min(100, (current / target) * 100))
   const atTarget = current != null && current >= target - 2
@@ -75,8 +81,13 @@ const SteamScreen: React.FC = () => {
         setDraftTarget(target)
         setEditing((v) => !v)
       }}
-      disabled={!connected}
+      disabled={!connected || steaming}
       aria-label="Editar alvo da vaporizacao"
+      title={
+        steaming
+          ? 'Desligue a vaporizacao para ajustar o alvo'
+          : 'Editar alvo da vaporizacao'
+      }
       className={`rounded-lg p-1.5 transition-colors disabled:opacity-40 ${
         editing ? 'bg-mocha/10 text-mocha' : 'text-muted active:bg-foam'
       }`}
@@ -173,8 +184,9 @@ const SteamScreen: React.FC = () => {
       )}
 
       <p className="mt-4 px-1 text-xs leading-relaxed text-muted">
-        O alvo da vaporizacao nao e salvo: volta para {STEAM_DEFAULT_C} °C quando
-        a maquina reinicia. Ao parar a vaporizacao a maquina volta o alvo de
+        Ajuste o alvo com a vaporizacao desligada; ele passa a valer quando voce
+        liga. O alvo nao e salvo: volta para {STEAM_DEFAULT_C} °C quando a
+        maquina reinicia. Ao parar a vaporizacao a maquina volta o alvo de
         temperatura para 70 °C (cafe). A caldeira leva alguns minutos para
         descer.
       </p>
