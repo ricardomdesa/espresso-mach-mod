@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESP32 simulado — Philco Mod</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #1a1d24; --panel2: #21252e; --line: #2c313c;
+    --ink: #e7e9ee; --muted: #8b93a3; --accent: #ff9d3d; --ok: #46c46b;
+    --off: #3a3f4b; --warn: #e0563c; --blue: #4aa3ff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.45 -apple-system, Segoe UI, Roboto, sans-serif; }
+  h1 { font-size: 16px; margin: 0; letter-spacing: .3px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--muted); margin: 0 0 10px; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 16px; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .badge { padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700;
+    background: var(--panel2); border: 1px solid var(--line); }
+  .badge.state-heating { color: var(--accent); }
+  .badge.state-extracting { color: var(--blue); }
+  .badge.state-steaming { color: #c98bff; }
+  .badge.state-preheating { color: var(--accent); }
+  .badge.state-idle { color: var(--muted); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--off); display: inline-block; }
+  .dot.live { background: var(--ok); }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .io { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+  .io .cell { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px; text-align: center; }
+  .io .lamp { width: 100%; height: 42px; border-radius: 8px; background: var(--off);
+    display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px;
+    color: #0c0e12; transition: background .08s linear; }
+  .io .lamp.on { background: var(--ok); }
+  .io .lamp.ssr.on { background: var(--accent); }
+  .io .lamp.warn.on { background: var(--warn); }
+  .io .name { font-weight: 700; margin-top: 8px; }
+  .io .pin { color: var(--muted); font-size: 11px; }
+  .big { font-size: 44px; font-weight: 800; line-height: 1; }
+  .unit { font-size: 18px; color: var(--muted); font-weight: 600; }
+  .kv { display: flex; justify-content: space-between; color: var(--muted); margin-top: 6px; }
+  .kv b { color: var(--ink); font-weight: 700; }
+  .bar { height: 10px; background: var(--panel2); border-radius: 6px; overflow: hidden; margin-top: 10px; }
+  .bar > span { display: block; height: 100%; background: var(--accent); width: 0; }
+  canvas { width: 100%; height: 120px; display: block; margin-top: 10px;
+    background: var(--panel2); border-radius: 8px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 3px; }
+  input, select { width: 100%; background: var(--panel2); border: 1px solid var(--line);
+    color: var(--ink); border-radius: 8px; padding: 7px 9px; font: inherit; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  button { background: var(--panel2); border: 1px solid var(--line); color: var(--ink);
+    border-radius: 8px; padding: 8px 10px; font: inherit; font-weight: 600; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #0c0e12; border-color: var(--accent); }
+  button.toggle.on { background: var(--ok); color: #0c0e12; border-color: var(--ok); }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .btns button { flex: 1 1 auto; }
+  .err { color: var(--warn); font-size: 12px; min-height: 16px; margin-top: 8px; }
+  .mut { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>ESP32 simulado</h1>
+    <span class="badge" id="state">—</span>
+    <span class="mut" id="wifi">wifi —</span>
+    <span class="mut" id="uptime">up —</span>
+    <span style="flex:1"></span>
+    <span class="dot" id="live"></span><span class="mut">polling</span>
+  </header>
+
+  <div class="io">
+    <div class="cell"><div class="lamp ssr" id="l-ssr">SSR</div><div class="name">Aquecedor</div><div class="pin">GPIO10 · duty <span id="duty">0</span>%</div></div>
+    <div class="cell"><div class="lamp" id="l-pump">OFF</div><div class="name">Relé bomba</div><div class="pin">GPIO0 (active-low)</div></div>
+    <div class="cell"><div class="lamp" id="l-led">OFF</div><div class="name">LED ilum.</div><div class="pin">GPIO20</div></div>
+    <div class="cell"><div class="lamp" id="l-ready">OFF</div><div class="name">Relé pronto</div><div class="pin">GPIO1 · histerese</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Caldeira</h2>
+      <div><span class="big" id="temp">--</span> <span class="unit">°C</span></div>
+      <div class="kv"><span>alvo do PID</span><b id="target">-- °C</b></div>
+      <div class="kv"><span>setpoint café</span><b id="sp">-- °C</b></div>
+      <div class="kv"><span>integral PID</span><b id="integ">--</b></div>
+      <div class="bar"><span id="dutybar"></span></div>
+      <canvas id="chart" width="600" height="120"></canvas>
+      <div class="kv"><span>sensAge</span><b id="sage">-- ms</b></div>
+    </div>
+
+    <div class="panel">
+      <h2>Pressão / cronômetro</h2>
+      <div><span class="big" id="press">--</span> <span class="unit">bar</span></div>
+      <div class="bar"><span id="pbar" style="background:var(--blue)"></span></div>
+      <div class="kv"><span>setpoint</span><b id="psp">-- bar</b></div>
+      <div class="kv"><span>timer</span><b id="timer">0.0 s</b></div>
+      <div class="kv"><span>perfil ativo</span><b id="prof">—</b></div>
+      <div class="kv"><span>fase execução</span><b id="phase">idle</b></div>
+      <div class="btns">
+        <button class="primary" id="b-start">Iniciar extração</button>
+        <button id="b-stop">Parar</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Setpoints</h2>
+      <label>Setpoint café (°C) — PUT /api/setpoint/temp</label>
+      <div class="row"><input type="number" id="i-sp" step="1" value="92"><button data-act="sp">OK</button></div>
+      <label>Vapor: alvo (°C) e liga/desliga — PUT /api/steam</label>
+      <div class="row"><input type="number" id="i-steam" step="1" value="90"><button class="toggle" id="b-steam">Vapor</button></div>
+      <label>Pressão setpoint (bar) — PUT /api/setpoint/pressure</label>
+      <div class="row"><input type="number" id="i-psp" step="0.5" value="9"><button data-act="psp">OK</button></div>
+    </div>
+
+    <div class="panel">
+      <h2>PID — PUT /api/pid</h2>
+      <div class="row">
+        <div><label>Kp</label><input type="number" id="i-kp" step="0.1" value="2"></div>
+        <div><label>Ki</label><input type="number" id="i-ki" step="0.1" value="0.5"></div>
+        <div><label>Kd</label><input type="number" id="i-kd" step="0.05" value="0.1"></div>
+      </div>
+      <div class="btns"><button class="primary" data-act="pid">Aplicar ganhos</button></div>
+    </div>
+
+    <div class="panel">
+      <h2>Saídas manuais</h2>
+      <div class="btns">
+        <button class="toggle" id="b-led">LED</button>
+        <button class="toggle" id="b-pump">Bomba</button>
+      </div>
+      <label>Wi-Fi mode (testa 409 em modo ap) — POST /sim/wifi-mode</label>
+      <select id="i-wifi"><option value="sta">sta</option><option value="ap">ap</option><option value="offline">offline</option></select>
+    </div>
+
+    <div class="panel">
+      <h2>Planta térmica — POST /sim/plant</h2>
+      <div class="row">
+        <div><label>Aquecedor (W)</label><input type="number" id="i-hw" step="50" value="1400"></div>
+        <div><label>Massa térm. (J/°C)</label><input type="number" id="i-tm" step="50" value="1200"></div>
+      </div>
+      <div class="row">
+        <div><label>Perda (W/°C)</label><input type="number" id="i-lc" step="0.5" value="8"></div>
+        <div><label>Ruído (°C)</label><input type="number" id="i-nz" step="0.02" value="0.12"></div>
+      </div>
+      <div class="btns"><button data-act="plant">Aplicar</button></div>
+    </div>
+
+    <div class="panel">
+      <h2>Simulação</h2>
+      <label>Forçar temperatura atual (°C) — POST /sim/temp</label>
+      <div class="row"><input type="number" id="i-temp" step="1" value="25"><button data-act="temp">Set</button></div>
+      <label>Ambiente (°C) — POST /sim/ambient</label>
+      <div class="row"><input type="number" id="i-amb" step="1" value="25"><button data-act="amb">Set</button></div>
+      <div class="btns">
+        <button class="toggle" id="b-fault">Falha sensor</button>
+        <button class="toggle" id="b-manual">Modo manual</button>
+      </div>
+      <div class="btns">
+        <button data-scn="cold-start">cold-start</button>
+        <button data-scn="at-temp">at-temp</button>
+        <button data-scn="hot">hot</button>
+        <button data-scn="steam">steam</button>
+      </div>
+      <div class="btns"><button id="b-reset">Reset de fábrica</button></div>
+    </div>
+
+    <div class="panel">
+      <h2>Perfil ativo — PUT /api/profiles/active</h2>
+      <select id="i-prof"></select>
+      <div class="btns"><button data-act="prof">Ativar</button><button data-act="prof-none">Nenhum</button></div>
+      <p class="mut" id="prof-info">—</p>
+    </div>
+  </div>
+
+  <div class="err" id="err"></div>
+  <p class="mut">Token em uso: <code id="tok"></code> · endpoints /api/* espelham <code>src/net/ApiServer.cpp</code>.</p>
+</div>
+
+<script>
+const TOKEN = "__SIM_TOKEN__";
+document.getElementById('tok').textContent = TOKEN;
+const $ = id => document.getElementById(id);
+const errEl = $('err');
+
+async function api(method, path, body, useToken) {
+  const h = { 'Content-Type': 'application/json' };
+  if (useToken) h['X-Auth-Token'] = TOKEN;
+  const opt = { method, headers: h };
+  if (body !== undefined) opt.body = JSON.stringify(body);
+  const res = await fetch(path, opt);
+  const txt = await res.text();
+  if (!res.ok) {
+    let msg = txt;
+    try { msg = JSON.parse(txt).error || txt; } catch {}
+    errEl.textContent = method + ' ' + path + ' → ' + res.status + ' ' + msg;
+    throw new Error(msg);
+  }
+  errEl.textContent = '';
+  return txt ? JSON.parse(txt) : null;
+}
+
+// ---- estado / render ----
+let last = null;
+const hist = [];   // {temp, target}
+const MAXH = 180;
+
+function lamp(el, on, cls) {
+  el.classList.toggle('on', !!on);
+  el.textContent = on ? 'ON' : 'OFF';
+}
+
+function render(s) {
+  last = s;
+  $('state').textContent = s.state;
+  $('state').className = 'badge state-' + s.state;
+  $('wifi').textContent = 'wifi ' + s.wifiMode;
+  $('uptime').textContent = 'up ' + s.uptime + 's';
+  $('temp').textContent = s.temp.toFixed(1);
+  $('target').textContent = s.target.toFixed(1) + ' °C';
+  $('sp').textContent = s.tempSetpoint.toFixed(1) + ' °C';
+  $('integ').textContent = (s.integral ?? 0).toFixed(1);
+  $('duty').textContent = s.duty.toFixed(0);
+  $('dutybar').style.width = s.duty + '%';
+  $('sage').textContent = s.sensAgeMs + ' ms';
+  $('press').textContent = s.press.toFixed(1);
+  $('pbar').style.width = Math.min(100, s.press / 15 * 100) + '%';
+  $('psp').textContent = s.pressSetpoint.toFixed(1) + ' bar';
+  $('timer').textContent = s.timer.toFixed(1) + ' s';
+  $('prof').textContent = s.profile || '—';
+  $('phase').textContent = s.runPhase + (s.stepCount ? ' ' + (s.stepIndex+1) + '/' + s.stepCount : '');
+
+  lamp($('l-pump'), s.pump);
+  lamp($('l-led'), s.led);
+  $('l-ready').classList.toggle('warn', false);
+  lamp($('l-ready'), s.ready);
+
+  $('b-led').classList.toggle('on', s.led);
+  $('b-pump').classList.toggle('on', s.pump);
+  $('b-steam').classList.toggle('on', s.steam);
+  $('b-fault').classList.toggle('on', s.sensorFault);
+  $('b-manual').classList.toggle('on', s.manual);
+
+  hist.push({ temp: s.temp, target: s.target });
+  if (hist.length > MAXH) hist.shift();
+  drawChart();
+}
+
+// SSR pisca conforme o time-proportioning (janela 1000 ms) usando o relógio local.
+function ssrTick() {
+  const duty = last ? last.duty : 0;
+  const on = (Date.now() % 1000) < duty * 10;
+  $('l-ssr').classList.toggle('on', on && duty > 0);
+}
+setInterval(ssrTick, 40);
+
+function drawChart() {
+  const c = $('chart'), ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  if (hist.length < 2) return;
+  let lo = 15, hi = 120;
+  for (const p of hist) { lo = Math.min(lo, p.temp, p.target); hi = Math.max(hi, p.temp, p.target); }
+  lo -= 3; hi += 3;
+  const x = i => i / (MAXH - 1) * W;
+  const y = v => H - (v - lo) / (hi - lo) * H;
+  ctx.lineWidth = 1; ctx.strokeStyle = '#4a4f5b'; ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  hist.forEach((p, i) => { i ? ctx.lineTo(x(i), y(p.target)) : ctx.moveTo(x(i), y(p.target)); });
+  ctx.stroke(); ctx.setLineDash([]);
+  ctx.lineWidth = 2; ctx.strokeStyle = '#ff9d3d';
+  ctx.beginPath();
+  hist.forEach((p, i) => { i ? ctx.lineTo(x(i), y(p.temp)) : ctx.moveTo(x(i), y(p.temp)); });
+  ctx.stroke();
+}
+
+async function poll() {
+  try {
+    const s = await api('GET', '/sim/state');
+    $('live').classList.add('live');
+    render(s);
+  } catch { $('live').classList.remove('live'); }
+}
+setInterval(poll, 250);
+poll();
+
+async function loadProfiles() {
+  try {
+    const list = await api('GET', '/api/profiles');
+    const sel = $('i-prof');
+    sel.innerHTML = '';
+    for (const p of list) {
+      const o = document.createElement('option');
+      o.value = p.id; o.textContent = p.name + ' (' + p.id + ', ' + p.temperature_c + '°C, ' + p.steps.length + ' passos)';
+      sel.appendChild(o);
+    }
+  } catch {}
+}
+loadProfiles();
+
+// ---- ações ----
+const num = id => parseFloat($(id).value);
+
+document.querySelectorAll('[data-act]').forEach(b => b.onclick = async () => {
+  try {
+    switch (b.dataset.act) {
+      case 'sp':   await api('PUT', '/api/setpoint/temp', { temp: num('i-sp') }, true); break;
+      case 'psp':  await api('PUT', '/api/setpoint/pressure', { press: num('i-psp') }, true); break;
+      case 'pid':  await api('PUT', '/api/pid', { kp: num('i-kp'), ki: num('i-ki'), kd: num('i-kd') }, true); break;
+      case 'plant':await api('POST', '/sim/plant', { heaterWatts: num('i-hw'), thermalMass: num('i-tm'), lossCoeff: num('i-lc'), noise: num('i-nz') }); break;
+      case 'temp': await api('POST', '/sim/temp', { temp: num('i-temp') }); break;
+      case 'amb':  await api('POST', '/sim/ambient', { temp: num('i-amb') }); break;
+      case 'prof': await api('PUT', '/api/profiles/active', { id: $('i-prof').value }, true); break;
+      case 'prof-none': await api('PUT', '/api/profiles/active', { id: '' }, true); break;
+    }
+    poll();
+  } catch {}
+});
+
+document.querySelectorAll('[data-scn]').forEach(b => b.onclick = async () => {
+  try { await api('POST', '/sim/scenario', { name: b.dataset.scn }); poll(); } catch {}
+});
+
+$('b-start').onclick = () => api('POST', '/api/extraction/start', undefined, true).then(poll).catch(()=>{});
+$('b-stop').onclick  = () => api('POST', '/api/extraction/stop', undefined, true).then(poll).catch(()=>{});
+$('b-reset').onclick = () => api('POST', '/sim/reset').then(poll).catch(()=>{});
+
+$('b-led').onclick    = () => api('PUT', '/api/led',  { on: !last.led }, true).then(poll).catch(()=>{});
+$('b-pump').onclick   = () => api('PUT', '/api/pump', { on: !last.pump }, true).then(poll).catch(()=>{});
+$('b-steam').onclick  = () => api('PUT', '/api/steam', { on: !last.steam, temp: num('i-steam') }, true).then(poll).catch(()=>{});
+$('b-fault').onclick  = () => api('POST', '/sim/sensor-fault', { on: !last.sensorFault }).then(poll).catch(()=>{});
+$('b-manual').onclick = () => api('POST', '/sim/mode', { manual: !last.manual }).then(poll).catch(()=>{});
+$('i-wifi').onchange  = () => api('POST', '/sim/wifi-mode', { mode: $('i-wifi').value }).then(poll).catch(()=>{});
+</script>
+</body>
+</html>
