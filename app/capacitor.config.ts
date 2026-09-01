@@ -10,6 +10,7 @@ const config: CapacitorConfig = {
     // fetch http:// é bloqueado e `new WebSocket('ws://...')` lança
     // SecurityError. Servir a app em http://localhost alinha as origens.
     androidScheme: 'http',
+    iosScheme: 'http',
     cleartext: true,
   },
   android: {

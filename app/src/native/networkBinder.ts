@@ -21,6 +21,8 @@ const NetworkBinder = registerPlugin<NetworkBinderPlugin>('NetworkBinder')
 
 // A máquina serve um AP sem internet. Sem este bind, o Android manda as
 // requisições do app pelos dados móveis e elas nunca chegam no ESP32.
+// No iOS não existe API equivalente: o plugin resolve com `requested: false` e
+// quem segura a rede é o usuário no prompt do sistema.
 // No browser (dev) não existe plugin nativo — vira no-op.
 export async function bindToWifi(): Promise<boolean> {
   if (!Capacitor.isNativePlatform()) return false
@@ -53,8 +55,14 @@ export async function diagnoseNetwork(): Promise<string | null> {
       '(ou em Philco-Setup, se for configurar a maquina).'
   }
   if (!status.bound) {
-    return 'O Android nao deixou o app usar a Wi-Fi (rede sem internet). ' +
-      'Desligue os dados moveis e tente de novo.'
+    // No Android o app prende os sockets na Wi-Fi; no iOS quem escolhe a rota e
+    // o sistema, entao a acao que resolve e diferente em cada plataforma.
+    return Capacitor.getPlatform() === 'ios'
+      ? 'O iPhone esta mandando o trafego pelos dados moveis em vez da Wi-Fi ' +
+        '(a rede da maquina nao tem internet). Toque em "Manter conexao" no ' +
+        'aviso do sistema, ou desligue os dados moveis e tente de novo.'
+      : 'O Android nao deixou o app usar a Wi-Fi (rede sem internet). ' +
+        'Desligue os dados moveis e tente de novo.'
   }
   return null
 }

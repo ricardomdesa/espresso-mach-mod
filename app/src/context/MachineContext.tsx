@@ -282,6 +282,43 @@ export const MachineProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [connect])
 
+  // O Android congela a WebView e pode derrubar a Wi-Fi enquanto a tela está
+  // bloqueada. Ao voltar, o processo pode ter perdido o bind (`onLost` do
+  // NetworkBinder zera a rota) e o REST pode estar apontando para uma conexão
+  // morta. Refaz o bind e revalida a máquina — o WebSocket se reconecta sozinho
+  // pelo próprio `wake` do useWebSocket.
+  const baseUrlRef = useRef(state.baseUrl)
+  baseUrlRef.current = state.baseUrl
+
+  React.useEffect(() => {
+    let resuming = false
+    const resume = () => {
+      if (resuming) return
+      resuming = true
+      bindToWifi()
+        .then(() => {
+          const baseUrl = baseUrlRef.current
+          if (!baseUrl) return
+          return connect(baseUrl).then(() => undefined)
+        })
+        .catch(() => {})
+        .finally(() => {
+          resuming = false
+        })
+    }
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') resume()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', resume)
+    window.addEventListener('online', resume)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', resume)
+      window.removeEventListener('online', resume)
+    }
+  }, [connect])
+
   // Carrega o cache local de perfis no boot e sincroniza assim que a máquina responder.
   React.useEffect(() => {
     refreshProfiles().catch(() => {})

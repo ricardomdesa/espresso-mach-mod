@@ -91,6 +91,12 @@ public class NetworkBinderPlugin extends Plugin {
                 if (network.equals(cm.getBoundNetworkForProcess())) {
                     Log.i(TAG, "Wi-Fi perdida, desfazendo o bind");
                     cm.bindProcessToNetwork(null);
+                    // O Android troca de objeto Network ao reassociar (tipico
+                    // depois da tela de bloqueio). Se outra Wi-Fi ja esta de pe,
+                    // reprende agora em vez de esperar um onAvailable que pode
+                    // nao vir — sem isso o processo fica nos dados moveis e a
+                    // maquina vira inalcancavel ate o app ser morto.
+                    rebindToAnyWifi(cm);
                 } else {
                     Log.i(TAG, "Wi-Fi perdida (nao era a rede vinculada), ignorando: " + network);
                 }
@@ -148,6 +154,36 @@ public class NetworkBinderPlugin extends Plugin {
         releaseCallback();
         cancelPendingRetries();
         call.resolve();
+    }
+
+    /**
+     * Volta do bloqueio de tela: enquanto o app estava em segundo plano a Wi-Fi
+     * pode ter caido e voltado com outro objeto Network, deixando o processo sem
+     * bind (todo trafego indo para os dados moveis). Reprende antes que a
+     * WebView refaca as requisicoes.
+     */
+    @Override
+    protected void handleOnResume() {
+        ConnectivityManager cm = manager();
+        if (cm == null || callback == null) return;
+        if (cm.getBoundNetworkForProcess() != null) return;
+        rebindToAnyWifi(cm);
+    }
+
+    /**
+     * Prende o processo a qualquer Wi-Fi ja conectada. Usado quando a rede
+     * vinculada some ou quando o app volta do segundo plano sem bind.
+     */
+    private void rebindToAnyWifi(ConnectivityManager cm) {
+        for (Network candidate : cm.getAllNetworks()) {
+            NetworkCapabilities caps = cm.getNetworkCapabilities(candidate);
+            if (caps == null) continue;
+            if (!caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) continue;
+            Log.i(TAG, "reprendendo o processo em " + candidate);
+            bindWithRetry(cm, candidate, 3, generation);
+            return;
+        }
+        Log.i(TAG, "nenhuma Wi-Fi disponivel para reprender");
     }
 
     @Override
