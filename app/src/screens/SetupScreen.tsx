@@ -5,13 +5,20 @@ import { discoverMachine, PROVISIONING_AP_URL } from '../utils/discovery'
 import { bindToWifi, diagnoseNetwork } from '../native/networkBinder'
 
 const SetupScreen: React.FC = () => {
-  const { connect, connected, status, baseUrl } = useMachine()
+  const { connect, connected, status, baseUrl, token } = useMachine()
   const navigate = useNavigate()
   const [searching, setSearching] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [manualIp, setManualIp] = useState('')
+  const [pairCode, setPairCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const autoRan = useRef(false)
+
+  // Pré-preenche o código de pareamento já guardado (aparece depois que o
+  // connect automático o carrega do storage).
+  useEffect(() => {
+    if (token) setPairCode(token)
+  }, [token])
 
   // Redireciona assim que a máquina confirma o modo: AP → pareamento,
   // qualquer outro (STA) → dashboard. Sem isso, o SetupScreen fica preso no
@@ -22,14 +29,14 @@ const SetupScreen: React.FC = () => {
     navigate(status.wifiMode === 'ap' ? '/provision' : '/', { replace: true })
   }, [connected, status, navigate])
 
-  const tryConnect = async (url: string) => {
+  const tryConnect = async (url: string, code?: string) => {
     setConnecting(true)
     setError(null)
     try {
       // O usuário pode ter acabado de trocar de rede; re-prende o app à Wi-Fi
       // antes de falar com a máquina.
       await bindToWifi()
-      await connect(url)
+      await connect(url, code)
     } catch (err) {
       // Quase sempre a culpa é da rede do aparelho (VPN, dados móveis), não do
       // endereço — vale mais dizer isso do que repetir "timeout".
@@ -51,7 +58,7 @@ const SetupScreen: React.FC = () => {
     const url = await discoverMachine()
     setSearching(false)
     if (url) {
-      await tryConnect(url)
+      await tryConnect(url, pairCode)
     } else {
       const hint = await diagnoseNetwork()
       setError(hint ?? 'Maquina nao encontrada na rede. Tente inserir o IP manualmente.')
@@ -72,7 +79,7 @@ const SetupScreen: React.FC = () => {
       setError('Endereco invalido.')
       return
     }
-    void tryConnect(url)
+    void tryConnect(url, pairCode)
   }
 
   useEffect(() => {
@@ -114,6 +121,24 @@ const SetupScreen: React.FC = () => {
             </div>
           ) : (
             <>
+              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted">
+                Codigo de pareamento
+              </label>
+              <input
+                type="text"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder="ex.: 7c4a9f21b8e3"
+                value={pairCode}
+                onChange={(e) => setPairCode(e.target.value.trim())}
+                className="tabular-live w-full rounded-xl border border-line bg-latte px-3 py-2.5 text-sm text-ink outline-none placeholder:text-muted/70 focus:border-mocha"
+              />
+              <p className="mb-3 mt-1.5 text-xs leading-relaxed text-muted">
+                O codigo fixo da sua maquina — na etiqueta dela (ou no log Serial
+                no boot). Fica guardado no aparelho; so precisa digitar uma vez.
+              </p>
+
               <button
                 onClick={handleAutoDiscover}
                 disabled={busy}
@@ -222,6 +247,11 @@ const SetupScreen: React.FC = () => {
               philco.local
             </code>{' '}
             na sua rede Wi-Fi.
+          </p>
+          <p>
+            O <strong className="font-semibold text-ink">codigo de pareamento</strong> e
+            fixo da maquina e libera os comandos (ligar bomba, mudar setpoint...). Sem ele
+            da pra ver as leituras, mas nao comandar.
           </p>
         </div>
       </div>

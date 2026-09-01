@@ -7,7 +7,7 @@ import { discoverMachine } from '../utils/discovery'
 type Phase = 'form' | 'sending' | 'waiting' | 'done'
 
 const ProvisionScreen: React.FC = () => {
-  const { api, connect, disconnect, setToken } = useMachine()
+  const { api, connect, disconnect } = useMachine()
   const navigate = useNavigate()
 
   const [networks, setNetworks] = useState<WiFiNetwork[]>([])
@@ -73,8 +73,7 @@ const ProvisionScreen: React.FC = () => {
     setError(null)
     setPhase('sending')
     try {
-      const result = await api.provisionWiFi(ssid.trim(), password)
-      if (result?.token) setToken(result.token)
+      await api.provisionWiFi(ssid.trim(), password)
     } catch (err) {
       // A máquina derruba o AP logo após aceitar a credencial, então a
       // resposta pode nunca chegar. Isso não significa que falhou.

@@ -98,10 +98,11 @@ export function createApiClient(baseUrl: string, token?: string | null) {
     // enquanto `scanning` for true vale pedir de novo.
     scanWiFi: () => request<WiFiScanResult>(baseUrl, 'GET', '/api/wifi/scan'),
 
-    // Exceção ao gate de token quando a máquina ainda está em modo AP
-    // (não requer token); em modo STA o servidor exige token aqui também.
+    // Em modo AP o firmware não exige a chave aqui; em modo STA exige, como
+    // qualquer outro endpoint mutante. A chave (código de pareamento) já vai
+    // no header quando o app a tem guardada.
     provisionWiFi: (ssid: string, password: string) =>
-      request<{ ok: boolean; rebooting: boolean; token: string }>(
+      request<{ ok: boolean; rebooting: boolean }>(
         baseUrl,
         'POST',
         '/api/wifi/provision',

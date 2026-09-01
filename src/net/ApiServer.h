@@ -73,16 +73,12 @@ private:
     // Encerra o ciclo (fim natural ou stop): bomba desligada, timer parado.
     void endProfileRun(bool broadcastStopped);
 
-    // Token de autenticação (gerado/persistido na NVS em begin()). Endpoints
-    // que mudam estado exigem o header "X-Auth-Token" com este valor —
-    // sem isso qualquer cliente na LAN poderia resetar/reconfigurar a máquina.
-    char authToken_[NvsConfig::kAuthTokenLen + 1] = {0};
-
     void registerRoutes();
     void registerWebSocket();
 
-    // Confere o header X-Auth-Token contra o token persistido. GET's de
-    // leitura não passam por aqui; endpoints que mudam estado sim.
+    // Confere o header X-Auth-Token contra a chave fixa API_AUTH_KEY (segredo
+    // pré-partilhado com o app, definido em platformio.ini). GET's de leitura
+    // não passam por aqui; endpoints que mudam estado sim.
     bool authOk(AsyncWebServerRequest *request) const;
 
     // Monta o JSON de GET /api/status em buffer estático (D5).

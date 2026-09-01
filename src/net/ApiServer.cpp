@@ -9,6 +9,14 @@
 #include "rede.h"
 #include "controle.h"
 
+// Código de pareamento da máquina (chave fixa da API). Normalmente vem de
+// platformio.ini ('-D API_AUTH_KEY="..."'); o fallback abaixo só evita quebrar
+// o build se alguém compilar sem o flag. É o mesmo código que o app pede no
+// pareamento.
+#ifndef API_AUTH_KEY
+#define API_AUTH_KEY "7c4a9f21b8e3"
+#endif
+
 namespace {
 
 constexpr size_t kStatusJsonSize = 768;
@@ -144,15 +152,17 @@ void ApiServer::sendStatus(AsyncWebServerRequest *request, int code) const {
 
 bool ApiServer::authOk(AsyncWebServerRequest *request) const {
     const AsyncWebHeader *h = request->getHeader("X-Auth-Token");
-    return h != nullptr && h->value() == authToken_;
+    return h != nullptr && h->value() == API_AUTH_KEY;
 }
 
 void ApiServer::begin() {
-    nvs_.loadOrCreateAuthToken(authToken_, sizeof(authToken_));
     registerWebSocket();
     registerRoutes();
     server_.begin();
     Serial.println(F("[api] servidor HTTP/WS na porta 80"));
+    // Impresso p/ anotar numa etiqueta na máquina: é o código que o app pede
+    // no pareamento (header X-Auth-Token nos endpoints que mudam estado).
+    Serial.printf("[api] codigo de pareamento: %s\n", API_AUTH_KEY);
 }
 
 void ApiServer::registerWebSocket() {
@@ -539,11 +549,11 @@ void ApiServer::registerRoutes() {
 
     onJsonBody(server_, "/api/wifi/provision", HTTP_POST,
                [this](AsyncWebServerRequest *request, JsonVariantConst body) {
-                   // Exceção ao gate de token: enquanto o AP de configuração está
-                   // no ar (só sobe via hold de 5s no botão físico — segurança já
-                   // garantida por isso), é este endpoint que entrega o token pela
-                   // primeira vez. Em modo STA, mudar a credencial exige token
-                   // como qualquer outro endpoint mutante.
+                   // Exceção ao gate de chave: enquanto o AP de configuração
+                   // está no ar (só sobe via hold de 5s no botão físico), o app
+                   // ainda não alcança a máquina pela rede de casa. Em modo STA,
+                   // mudar a credencial exige a chave como qualquer outro
+                   // endpoint mutante.
                    if (wifi_.mode() != WifiMode::Ap && !authOk(request)) {
                        sendError(request, 401, "token invalido");
                        return;
@@ -554,12 +564,10 @@ void ApiServer::registerRoutes() {
                        sendError(request, 400, "ssid obrigatorio");
                        return;
                    }
-                   // A máquina reinicia logo em seguida para entrar na rede. Devolve
-                   // o token para o app guardar e usar nas próximas chamadas.
-                   char buf[96];
-                   snprintf(buf, sizeof(buf), "{\"ok\":true,\"rebooting\":true,\"token\":\"%s\"}",
-                            authToken_);
-                   request->send(200, kJson, buf);
+                   // A máquina reinicia logo em seguida para entrar na rede. A
+                   // chave da API é fixa (compilada no firmware + app), não há
+                   // nada a devolver aqui.
+                   request->send(200, kJson, "{\"ok\":true,\"rebooting\":true}");
                });
 
     server_.on("/api/wifi/forget", HTTP_POST, [this](AsyncWebServerRequest *request) {

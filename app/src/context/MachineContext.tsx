@@ -69,7 +69,9 @@ interface MachineContextValue extends Omit<MachineState, 'profiles'> {
   profiles: ExtractionProfile[]
   /** id do perfil -> tipo de mudança ainda não enviada à máquina. */
   profilesPending: Record<string, PendingKind>
-  connect: (baseUrl: string) => Promise<MachineStatus>
+  /** `apiKey` (código de pareamento): quando passado, é gravado e usado nas
+   *  chamadas mutantes; senão reusa o que já estiver guardado no aparelho. */
+  connect: (baseUrl: string, apiKey?: string) => Promise<MachineStatus>
   disconnect: () => Promise<void>
   refreshStatus: () => Promise<void>
   refreshProfiles: () => Promise<void>
@@ -77,7 +79,7 @@ interface MachineContextValue extends Omit<MachineState, 'profiles'> {
   saveProfile: (profile: Omit<ExtractionProfile, 'id'>, id?: string) => Promise<void>
   /** Remove um perfil. Local se offline; sincroniza ao reconectar. */
   removeProfile: (id: string) => Promise<void>
-  /** Guarda o token de autenticação (devolvido por /api/wifi/provision) para as próximas chamadas. */
+  /** Guarda o código de pareamento (chave fixa da máquina) para as próximas chamadas. */
   setToken: (token: string) => void
 }
 
@@ -205,11 +207,17 @@ export const MachineProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Conecta = provar que a máquina responde ao REST. Só então marcamos
   // `connected` e liberamos as rotas; erro sobe para quem chamou mostrar.
-  const connect = useCallback(async (baseUrl: string) => {
+  const connect = useCallback(async (baseUrl: string, apiKey?: string) => {
     const normalized = baseUrl.replace(/\/+$/, '')
-    // O token persiste entre reconexões (RESET limpa só o estado em memória);
-    // recarrega do storage para as chamadas mutantes continuarem autenticadas.
-    const { value: token } = await Preferences.get({ key: TOKEN_KEY })
+    // Código de pareamento novo (digitado no Setup) grava agora; senão reusa o
+    // que já está guardado — ele persiste entre reconexões (RESET limpa só o
+    // estado em memória) e mantém as chamadas mutantes autenticadas.
+    let token = apiKey?.trim() || null
+    if (token) {
+      await Preferences.set({ key: TOKEN_KEY, value: token })
+    } else {
+      token = (await Preferences.get({ key: TOKEN_KEY })).value
+    }
     const status = await createApiClient(normalized, token).getStatus()
     dispatch({ type: 'SET_BASE_URL', payload: normalized })
     dispatch({ type: 'SET_TOKEN', payload: token ?? null })
