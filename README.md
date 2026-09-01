@@ -54,6 +54,7 @@ desenvolver o app sem encostar no hardware.
 ```
 .
 ├── src/ · include/ · platformio.ini   Firmware ESP32-C3 (Arduino / PlatformIO)
+├── secrets.ini.example                Modelo do secrets.ini (código de pareamento)
 ├── app/                               App React + TypeScript + Vite + Capacitor
 ├── simulator/                         Servidor Go que emula o ESP32 (REST + WS + web)
 ├── docs/                              Arquitetura, épicos, SDDs, calibração do PID
@@ -99,6 +100,19 @@ estão comentados em [`include/pinos.h`](include/pinos.h). Diagrama completo em
 ### Firmware
 
 Precisa de [PlatformIO](https://platformio.org/).
+
+**Antes do primeiro build**, crie o `secrets.ini` com o código de pareamento da
+sua máquina. Ele não é versionado — quem tem o código comanda a máquina (bomba,
+setpoint, extração), então não pode viver num repositório público:
+
+```sh
+cp secrets.ini.example secrets.ini
+openssl rand -hex 6                        # gere um código e ponha em auth_key
+```
+
+Sem esse arquivo o build falha de propósito. Anote o código numa etiqueta na
+máquina: é ele que o app pede uma vez, no pareamento. Ele também sai no Serial
+no boot. Trocar o código exige regravar o firmware e parear o app de novo.
 
 ```sh
 pio run                                    # compila (env: esp32-c3-super-mini)
@@ -150,12 +164,14 @@ controle da simulação em [`simulator/README.md`](simulator/README.md).
 
 `GET /ws` faz o streaming de leituras a cada 100 ms e emite eventos
 (`extraction_started`, `extraction_stopped`, `error`). Rotas que mudam estado
-exigem o header `X-Auth-Token` (dispensado só no `provision` em modo AP); CORS
-liberado, `OPTIONS` responde 204.
+exigem o header `X-Auth-Token` com o código de pareamento (dispensado só no
+`provision` em modo AP); CORS liberado, `OPTIONS` responde 204. As rotas de
+leitura são públicas: dá para ver as leituras sem código, mas não comandar.
 
 | Método | Rota | O quê |
 |---|---|---|
 | `GET` | `/api/status` | snapshot completo (temp, pressão, setpoints, PID, flags, IP) |
+| `GET` | `/api/auth/check` | valida o código de pareamento — 204 se vale, 401 se não |
 | `PUT` | `/api/setpoint/temp` · `/api/setpoint/pressure` | alvos de temperatura / pressão |
 | `PUT` | `/api/pid` | ganhos `{kp, ki, kd}` |
 | `PUT` | `/api/led` · `/api/pump` · `/api/steam` | LED, bomba, modo vaporização |
