@@ -13,7 +13,7 @@ const TEMP_MAX_C = 115
 type Feedback = { kind: 'ok' | 'error'; msg: string } | null
 
 const SettingsScreen: React.FC = () => {
-  const { status, connected } = useMachine()
+  const { status, connected, canCommand } = useMachine()
   const { setTemp, setPID } = useMachineApi()
   const { tempUnit, setTempUnit } = useSettings()
 
@@ -96,7 +96,7 @@ const SettingsScreen: React.FC = () => {
           onChange={(e) => setTempValue(parseFloat(e.target.value))}
           className="mt-3 w-full accent-mocha"
         />
-        <button onClick={handleSaveTemp} disabled={!connected} className={applyBtn}>
+        <button onClick={handleSaveTemp} disabled={!connected || !canCommand} className={applyBtn}>
           Aplicar temperatura
         </button>
       </div>
@@ -123,7 +123,7 @@ const SettingsScreen: React.FC = () => {
             </div>
           ))}
         </div>
-        <button onClick={handleSavePID} disabled={!connected} className={applyBtn}>
+        <button onClick={handleSavePID} disabled={!connected || !canCommand} className={applyBtn}>
           Aplicar PID
         </button>
       </div>

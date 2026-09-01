@@ -12,7 +12,7 @@ const STEAM_MIN_C = 80
 const STEAM_MAX_C = 115
 
 const SteamScreen: React.FC = () => {
-  const { currentFrame, status, connected } = useMachine()
+  const { currentFrame, status, connected, canCommand } = useMachine()
   const { temp } = useFormatters()
   const { setSteam } = useMachineApi()
 
@@ -81,7 +81,7 @@ const SteamScreen: React.FC = () => {
         setDraftTarget(target)
         setEditing((v) => !v)
       }}
-      disabled={!connected || steaming}
+      disabled={!connected || !canCommand || steaming}
       aria-label="Editar alvo da vaporizacao"
       title={
         steaming
@@ -194,7 +194,7 @@ const SteamScreen: React.FC = () => {
       {/* Start/stop */}
       <button
         onClick={handleToggle}
-        disabled={!connected || busy || (blockedByExtraction && !steaming)}
+        disabled={!connected || !canCommand || busy || (blockedByExtraction && !steaming)}
         className={`mt-4 w-full rounded-2xl py-5 text-base font-bold uppercase tracking-wide text-cream shadow-raised transition-colors disabled:opacity-40 disabled:shadow-none ${
           steaming ? 'bg-brick active:bg-brick/90' : 'bg-mocha active:bg-mocha-dark'
         }`}

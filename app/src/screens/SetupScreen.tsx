@@ -5,13 +5,24 @@ import { discoverMachine, PROVISIONING_AP_URL } from '../utils/discovery'
 import { bindToWifi, diagnoseNetwork } from '../native/networkBinder'
 
 const SetupScreen: React.FC = () => {
-  const { connect, connected, status, baseUrl } = useMachine()
+  const { connect, connected, status, baseUrl, token } = useMachine()
   const navigate = useNavigate()
   const [searching, setSearching] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [manualIp, setManualIp] = useState('')
+  const [pairCode, setPairCode] = useState('')
   const [error, setError] = useState<string | null>(null)
+  // Máquina encontrada sozinha, mas sem código de pareamento guardado. Ficamos
+  // no Setup pedindo o código em vez de cair no painel: /api/status é público,
+  // então o app "conecta" e vira somente-leitura sem o usuário perceber.
+  const [foundUrl, setFoundUrl] = useState<string | null>(null)
   const autoRan = useRef(false)
+
+  // Pré-preenche o código de pareamento já guardado (aparece depois que o
+  // connect automático o carrega do storage).
+  useEffect(() => {
+    if (token) setPairCode(token)
+  }, [token])
 
   // Redireciona assim que a máquina confirma o modo: AP → pareamento,
   // qualquer outro (STA) → dashboard. Sem isso, o SetupScreen fica preso no
@@ -19,26 +30,35 @@ const SetupScreen: React.FC = () => {
   // "/" só redireciona sozinha se o usuário já estiver nela, não em /setup.
   useEffect(() => {
     if (!connected || !status) return
+    // Segura o redirecionamento enquanto pedimos o código; entrar só para ver
+    // as leituras passa a ser uma escolha explícita, não um acidente.
+    if (foundUrl && !token) return
     navigate(status.wifiMode === 'ap' ? '/provision' : '/', { replace: true })
-  }, [connected, status, navigate])
+  }, [connected, status, navigate, foundUrl, token])
 
-  const tryConnect = async (url: string) => {
+  const tryConnect = async (url: string, code?: string): Promise<boolean> => {
     setConnecting(true)
     setError(null)
     try {
       // O usuário pode ter acabado de trocar de rede; re-prende o app à Wi-Fi
       // antes de falar com a máquina.
       await bindToWifi()
-      await connect(url)
+      await connect(url, code)
+      return true
     } catch (err) {
       // Quase sempre a culpa é da rede do aparelho (VPN, dados móveis), não do
       // endereço — vale mais dizer isso do que repetir "timeout".
       const hint = await diagnoseNetwork()
+      // Código recusado pela máquina é erro do usuário, não da rede: a dica de
+      // rede (VPN, dados móveis) só confundiria.
+      const message = err instanceof Error ? err.message : String(err)
+      const badCode = message.includes('Codigo de pareamento invalido')
       setError(
-        hint ??
-          `Nao consegui falar com a maquina em ${url}. ` +
-            (err instanceof Error ? err.message : String(err)),
+        badCode
+          ? message
+          : hint ?? `Nao consegui falar com a maquina em ${url}. ${message}`,
       )
+      return false
     } finally {
       setConnecting(false)
     }
@@ -50,12 +70,26 @@ const SetupScreen: React.FC = () => {
     await bindToWifi()
     const url = await discoverMachine()
     setSearching(false)
-    if (url) {
-      await tryConnect(url)
-    } else {
+    if (!url) {
       const hint = await diagnoseNetwork()
       setError(hint ?? 'Maquina nao encontrada na rede. Tente inserir o IP manualmente.')
+      return
     }
+    // Sem código digitado nem guardado, a conexão seria somente-leitura.
+    // Registra o endereço e para aqui: o redirecionamento fica bloqueado até o
+    // usuário digitar o código ou dizer que quer só as leituras.
+    if (!pairCode && !token) setFoundUrl(url)
+    await tryConnect(url, pairCode)
+  }
+
+  // O endereço já é conhecido; só falta o código. Evita repetir a varredura.
+  const handlePair = async () => {
+    if (!foundUrl) return
+    if (!pairCode) {
+      setError('Digite o codigo de pareamento.')
+      return
+    }
+    if (await tryConnect(foundUrl, pairCode)) setFoundUrl(null)
   }
 
   const handleManualConnect = () => {
@@ -72,7 +106,7 @@ const SetupScreen: React.FC = () => {
       setError('Endereco invalido.')
       return
     }
-    void tryConnect(url)
+    void tryConnect(url, pairCode)
   }
 
   useEffect(() => {
@@ -83,6 +117,9 @@ const SetupScreen: React.FC = () => {
   }, [])
 
   const busy = searching || connecting
+  // Achamos a máquina, mas ainda não há código válido: o card pede o código em
+  // vez de anunciar "Conectado!" e sumir para o painel.
+  const pairingNeeded = !!foundUrl && !token
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-latte px-6 safe-area-top safe-area-bottom">
@@ -107,20 +144,61 @@ const SetupScreen: React.FC = () => {
 
         {/* Card de conexao */}
         <div className="rounded-2xl border border-line bg-cream p-5 shadow-card">
-          {connected ? (
+          {connected && !pairingNeeded ? (
             <div className="py-4 text-center">
               <div className="text-sm font-semibold text-herb">Conectado!</div>
               <p className="mt-1 text-xs text-muted">Redirecionando...</p>
             </div>
           ) : (
             <>
+              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted">
+                Codigo de pareamento
+              </label>
+              <input
+                type="text"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder="ex.: 7c4a9f21b8e3"
+                value={pairCode}
+                onChange={(e) => setPairCode(e.target.value.trim())}
+                className="tabular-live w-full rounded-xl border border-line bg-latte px-3 py-2.5 text-sm text-ink outline-none placeholder:text-muted/70 focus:border-mocha"
+              />
+              <p className="mb-3 mt-1.5 text-xs leading-relaxed text-muted">
+                O codigo fixo da sua maquina — na etiqueta dela (ou no log Serial
+                no boot). Fica guardado no aparelho; so precisa digitar uma vez.
+              </p>
+
               <button
-                onClick={handleAutoDiscover}
+                onClick={pairingNeeded ? handlePair : handleAutoDiscover}
                 disabled={busy}
                 className="w-full rounded-xl bg-mocha py-3.5 text-sm font-bold uppercase tracking-wide text-cream shadow-raised active:bg-mocha-dark disabled:opacity-40 disabled:shadow-none"
               >
-                {searching ? 'Buscando maquina...' : connecting ? 'Conectando...' : 'Buscar maquina'}
+                {searching
+                  ? 'Buscando maquina...'
+                  : connecting
+                    ? 'Conectando...'
+                    : pairingNeeded
+                      ? 'Parear'
+                      : 'Buscar maquina'}
               </button>
+
+              {pairingNeeded && (
+                <>
+                  <p className="mt-3 rounded-xl border border-line bg-latte px-3 py-2.5 text-xs leading-relaxed text-muted">
+                    Achei a maquina em{' '}
+                    <span className="tabular-live font-semibold text-ink">{foundUrl}</span>.
+                    Digite o codigo acima para poder comandar, ou entre so para ver as
+                    leituras.
+                  </p>
+                  <button
+                    onClick={() => setFoundUrl(null)}
+                    className="mt-2 w-full rounded-xl border border-line py-2.5 text-xs font-semibold text-muted active:bg-foam"
+                  >
+                    Entrar so para ver as leituras
+                  </button>
+                </>
+              )}
 
               <div className="my-4 flex items-center gap-3">
                 <span className="h-px flex-1 bg-line" />
@@ -222,6 +300,11 @@ const SetupScreen: React.FC = () => {
               philco.local
             </code>{' '}
             na sua rede Wi-Fi.
+          </p>
+          <p>
+            O <strong className="font-semibold text-ink">codigo de pareamento</strong> e
+            fixo da maquina e libera os comandos (ligar bomba, mudar setpoint...). Sem ele
+            da pra ver as leituras, mas nao comandar.
           </p>
         </div>
       </div>

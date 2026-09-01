@@ -69,7 +69,9 @@ interface MachineContextValue extends Omit<MachineState, 'profiles'> {
   profiles: ExtractionProfile[]
   /** id do perfil -> tipo de mudança ainda não enviada à máquina. */
   profilesPending: Record<string, PendingKind>
-  connect: (baseUrl: string) => Promise<MachineStatus>
+  /** `apiKey` (código de pareamento): quando passado, é gravado e usado nas
+   *  chamadas mutantes; senão reusa o que já estiver guardado no aparelho. */
+  connect: (baseUrl: string, apiKey?: string) => Promise<MachineStatus>
   disconnect: () => Promise<void>
   refreshStatus: () => Promise<void>
   refreshProfiles: () => Promise<void>
@@ -77,8 +79,11 @@ interface MachineContextValue extends Omit<MachineState, 'profiles'> {
   saveProfile: (profile: Omit<ExtractionProfile, 'id'>, id?: string) => Promise<void>
   /** Remove um perfil. Local se offline; sincroniza ao reconectar. */
   removeProfile: (id: string) => Promise<void>
-  /** Guarda o token de autenticação (devolvido por /api/wifi/provision) para as próximas chamadas. */
+  /** Guarda o código de pareamento (chave fixa da máquina) para as próximas chamadas. */
   setToken: (token: string) => void
+  /** Há um código de pareamento válido: os comandos que mudam estado funcionam.
+   *  Sem ele o app é somente-leitura — a máquina devolve 401 nas rotas mutantes. */
+  canCommand: boolean
 }
 
 const MachineContext = createContext<MachineContextValue | null>(null)
@@ -205,12 +210,35 @@ export const MachineProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Conecta = provar que a máquina responde ao REST. Só então marcamos
   // `connected` e liberamos as rotas; erro sobe para quem chamou mostrar.
-  const connect = useCallback(async (baseUrl: string) => {
+  const connect = useCallback(async (baseUrl: string, apiKey?: string) => {
     const normalized = baseUrl.replace(/\/+$/, '')
-    // O token persiste entre reconexões (RESET limpa só o estado em memória);
-    // recarrega do storage para as chamadas mutantes continuarem autenticadas.
-    const { value: token } = await Preferences.get({ key: TOKEN_KEY })
+    // Código de pareamento novo (digitado no Setup) ou o que já está guardado —
+    // ele persiste entre reconexões (RESET limpa só o estado em memória) e
+    // mantém as chamadas mutantes autenticadas.
+    const typed = apiKey?.trim() || null
+    let token = typed ?? (await Preferences.get({ key: TOKEN_KEY })).value
+
     const status = await createApiClient(normalized, token).getStatus()
+
+    // /api/status é público: responde 200 mesmo sem código. Sem esta checagem
+    // o app entrava no painel achando que estava pareado e só descobria o
+    // problema no primeiro comando, com um 401 solto na cara do usuário.
+    if (token) {
+      const valid = await createApiClient(normalized, token).checkAuth()
+      if (!valid) {
+        if (typed) {
+          // Digitado agora: não grava nada e deixa o Setup explicar.
+          throw new Error('Codigo de pareamento invalido para esta maquina.')
+        }
+        // Guardado de um pareamento antigo (a máquina trocou de código).
+        // Segue conectado em modo leitura em vez de travar o app.
+        token = null
+        await Preferences.remove({ key: TOKEN_KEY })
+      } else if (typed) {
+        await Preferences.set({ key: TOKEN_KEY, value: typed })
+      }
+    }
+
     dispatch({ type: 'SET_BASE_URL', payload: normalized })
     dispatch({ type: 'SET_TOKEN', payload: token ?? null })
     dispatch({ type: 'SET_STATUS', payload: status })
@@ -276,6 +304,7 @@ export const MachineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       saveProfile,
       removeProfile,
       setToken,
+      canCommand: !!state.token,
     }),
     [
       state,
