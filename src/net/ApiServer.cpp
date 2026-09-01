@@ -9,12 +9,12 @@
 #include "rede.h"
 #include "controle.h"
 
-// Código de pareamento da máquina (chave fixa da API). Normalmente vem de
-// platformio.ini ('-D API_AUTH_KEY="..."'); o fallback abaixo só evita quebrar
-// o build se alguém compilar sem o flag. É o mesmo código que o app pede no
-// pareamento.
+// Código de pareamento da máquina (chave fixa da API). Vem de platformio.ini
+// ('-D API_AUTH_KEY="..."'); é o mesmo código que o app pede no pareamento.
+// Sem o flag o build quebra de propósito: um fallback embutido aqui viraria
+// segredo público no repositório.
 #ifndef API_AUTH_KEY
-#define API_AUTH_KEY "7c4a9f21b8e3"
+#error "defina API_AUTH_KEY no platformio.ini (-D API_AUTH_KEY=\"<12 hex>\")"
 #endif
 
 namespace {
