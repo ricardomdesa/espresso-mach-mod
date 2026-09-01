@@ -9,13 +9,18 @@
 #include "rede.h"
 #include "controle.h"
 
-// Código de pareamento da máquina (chave fixa da API). Vem de platformio.ini
-// ('-D API_AUTH_KEY="..."'); é o mesmo código que o app pede no pareamento.
-// Sem o flag o build quebra de propósito: um fallback embutido aqui viraria
-// segredo público no repositório.
+// Código de pareamento da máquina (chave fixa da API). Vem de secrets.ini, que
+// está fora do controle de versão; é o mesmo código que o app pede no
+// pareamento. Sem o flag o build quebra de propósito: um fallback embutido aqui
+// viraria segredo público no repositório.
 #ifndef API_AUTH_KEY
-#error "defina API_AUTH_KEY no platformio.ini (-D API_AUTH_KEY=\"<12 hex>\")"
+#error "crie secrets.ini a partir de secrets.ini.example e defina auth_key"
 #endif
+
+// secrets.ini ausente ou com a seção vazia faz `${secrets.auth_key}` expandir
+// para nada, e aí um header X-Auth-Token vazio abriria a máquina inteira.
+static_assert(sizeof(API_AUTH_KEY) - 1 >= 8,
+              "API_AUTH_KEY curto demais: confira auth_key em secrets.ini");
 
 namespace {
 

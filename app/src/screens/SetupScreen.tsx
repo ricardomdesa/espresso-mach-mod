@@ -159,7 +159,7 @@ const SetupScreen: React.FC = () => {
                 autoCapitalize="none"
                 autoCorrect="off"
                 spellCheck={false}
-                placeholder="ex.: 7c4a9f21b8e3"
+                placeholder="ex.: a1b2c3d4e5f6"
                 value={pairCode}
                 onChange={(e) => setPairCode(e.target.value.trim())}
                 className="tabular-live w-full rounded-xl border border-line bg-latte px-3 py-2.5 text-sm text-ink outline-none placeholder:text-muted/70 focus:border-mocha"

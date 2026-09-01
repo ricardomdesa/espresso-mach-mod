@@ -1,3 +1,5 @@
 .pio/
 .pio-tmp/
 .vscode/
+
+secrets.ini
