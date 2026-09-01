@@ -212,6 +212,18 @@ void ApiServer::registerRoutes() {
     server_.on("/api/status", HTTP_GET,
                [this](AsyncWebServerRequest *request) { sendStatus(request); });
 
+    // Verifica o código de pareamento sem mexer em nada. /api/status é público
+    // (dá para ver as leituras sem código), então sem esta rota o app só
+    // descobria que o código está errado — ou ausente — no primeiro comando
+    // que muda estado, já dentro do painel.
+    server_.on("/api/auth/check", HTTP_GET, [this](AsyncWebServerRequest *request) {
+        if (!authOk(request)) {
+            sendError(request, 401, "token invalido");
+            return;
+        }
+        request->send(204);
+    });
+
     // --- Setpoints e PID ---
     onJsonBody(server_, "/api/setpoint/temp", HTTP_PUT,
                [this](AsyncWebServerRequest *request, JsonVariantConst body) {

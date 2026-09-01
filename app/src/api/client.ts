@@ -47,6 +47,23 @@ export function createApiClient(baseUrl: string, token?: string | null) {
   return {
     getStatus: () => request<MachineStatus>(baseUrl, 'GET', '/api/status'),
 
+    // Prova que o codigo de pareamento vale, sem efeito colateral. Resolve com
+    // `true` se a maquina aceitou, `false` no 401. Erro de rede sobe como
+    // excecao — quem chama distingue "codigo errado" de "maquina sumiu".
+    checkAuth: async (): Promise<boolean> => {
+      try {
+        await request<void>(baseUrl, 'GET', '/api/auth/check', undefined, token)
+        return true
+      } catch (err) {
+        if (err instanceof ApiError && (err.status === 401 || err.status === 404)) {
+          // 404: firmware antigo, sem a rota. Nao da para provar o codigo aqui;
+          // trata como nao verificado em vez de bloquear o app.
+          return err.status === 404
+        }
+        throw err
+      }
+    },
+
     setTempSetpoint: (temp: number) =>
       request<MachineStatus>(baseUrl, 'PUT', '/api/setpoint/temp', { temp }, token),
 

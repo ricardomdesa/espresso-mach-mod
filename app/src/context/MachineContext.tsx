@@ -81,6 +81,9 @@ interface MachineContextValue extends Omit<MachineState, 'profiles'> {
   removeProfile: (id: string) => Promise<void>
   /** Guarda o código de pareamento (chave fixa da máquina) para as próximas chamadas. */
   setToken: (token: string) => void
+  /** Há um código de pareamento válido: os comandos que mudam estado funcionam.
+   *  Sem ele o app é somente-leitura — a máquina devolve 401 nas rotas mutantes. */
+  canCommand: boolean
 }
 
 const MachineContext = createContext<MachineContextValue | null>(null)
@@ -209,16 +212,33 @@ export const MachineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // `connected` e liberamos as rotas; erro sobe para quem chamou mostrar.
   const connect = useCallback(async (baseUrl: string, apiKey?: string) => {
     const normalized = baseUrl.replace(/\/+$/, '')
-    // Código de pareamento novo (digitado no Setup) grava agora; senão reusa o
-    // que já está guardado — ele persiste entre reconexões (RESET limpa só o
-    // estado em memória) e mantém as chamadas mutantes autenticadas.
-    let token = apiKey?.trim() || null
-    if (token) {
-      await Preferences.set({ key: TOKEN_KEY, value: token })
-    } else {
-      token = (await Preferences.get({ key: TOKEN_KEY })).value
-    }
+    // Código de pareamento novo (digitado no Setup) ou o que já está guardado —
+    // ele persiste entre reconexões (RESET limpa só o estado em memória) e
+    // mantém as chamadas mutantes autenticadas.
+    const typed = apiKey?.trim() || null
+    let token = typed ?? (await Preferences.get({ key: TOKEN_KEY })).value
+
     const status = await createApiClient(normalized, token).getStatus()
+
+    // /api/status é público: responde 200 mesmo sem código. Sem esta checagem
+    // o app entrava no painel achando que estava pareado e só descobria o
+    // problema no primeiro comando, com um 401 solto na cara do usuário.
+    if (token) {
+      const valid = await createApiClient(normalized, token).checkAuth()
+      if (!valid) {
+        if (typed) {
+          // Digitado agora: não grava nada e deixa o Setup explicar.
+          throw new Error('Codigo de pareamento invalido para esta maquina.')
+        }
+        // Guardado de um pareamento antigo (a máquina trocou de código).
+        // Segue conectado em modo leitura em vez de travar o app.
+        token = null
+        await Preferences.remove({ key: TOKEN_KEY })
+      } else if (typed) {
+        await Preferences.set({ key: TOKEN_KEY, value: typed })
+      }
+    }
+
     dispatch({ type: 'SET_BASE_URL', payload: normalized })
     dispatch({ type: 'SET_TOKEN', payload: token ?? null })
     dispatch({ type: 'SET_STATUS', payload: status })
@@ -284,6 +304,7 @@ export const MachineProvider: React.FC<{ children: React.ReactNode }> = ({ child
       saveProfile,
       removeProfile,
       setToken,
+      canCommand: !!state.token,
     }),
     [
       state,

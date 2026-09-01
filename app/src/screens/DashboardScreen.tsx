@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useMachine } from '../context/MachineContext'
 import { useFormatters } from '../utils/formatters'
 import { useMachineApi } from '../hooks/useMachineApi'
@@ -103,7 +104,8 @@ const DebugLine: React.FC<{ frame: WsFrame | null; status: MachineStatus | null 
 }
 
 const DashboardScreen: React.FC = () => {
-  const { currentFrame, status, connected, lastEvent, profiles, refreshProfiles } = useMachine()
+  const { currentFrame, status, connected, canCommand, lastEvent, profiles, refreshProfiles } =
+    useMachine()
   const { temp } = useFormatters()
   const { startExtraction, stopExtraction, setLed, setPump } = useMachineApi()
   const { add: addHistoryRecord } = useLocalHistory()
@@ -271,12 +273,27 @@ const DashboardScreen: React.FC = () => {
         </span>
       </div>
 
+      {/* Sem codigo de pareamento a maquina recusa tudo que muda estado (401).
+          Melhor dizer isso aqui do que deixar cada botao falhar sozinho. */}
+      {connected && !canCommand && (
+        <Link
+          to="/setup"
+          className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-line bg-cream px-4 py-3 shadow-card active:bg-foam"
+        >
+          <span className="text-xs leading-relaxed text-muted">
+            <span className="font-semibold text-ink">Somente leitura.</span> Sem o codigo
+            de pareamento da para ver as leituras, mas nao comandar a maquina.
+          </span>
+          <span className="shrink-0 text-xs font-semibold text-mocha">Inserir</span>
+        </Link>
+      )}
+
       {/* Controles diretos: iluminacao e bomba (rele) */}
       <div className="mb-3 grid grid-cols-2 gap-3">
         <ControlToggle
           label="Iluminacao"
           on={!!status?.led}
-          disabled={!connected}
+          disabled={!connected || !canCommand}
           onToggle={() => runControl(() => setLed(!status?.led))}
         />
         <ControlToggle
@@ -284,7 +301,7 @@ const DashboardScreen: React.FC = () => {
           on={!!status?.pump}
           // Firmware recusa /api/pump em modo AP (HTTP 409): durante o scan de
           // redes o loop fica bloqueado e o rele so seria espelhado depois.
-          disabled={!connected || status?.wifiMode === 'ap'}
+          disabled={!connected || !canCommand || status?.wifiMode === 'ap'}
           onToggle={() => runControl(() => setPump(!status?.pump))}
         />
       </div>
@@ -306,7 +323,7 @@ const DashboardScreen: React.FC = () => {
       <button
         onClick={handleToggleExtraction}
         // Firmware recusa start em modo AP (409); stop continua liberado.
-        disabled={!connected || (status?.wifiMode === 'ap' && !isRunning)}
+        disabled={!connected || !canCommand || (status?.wifiMode === 'ap' && !isRunning)}
         className={`w-full rounded-2xl py-5 text-base font-bold uppercase tracking-wide text-cream shadow-raised transition-colors disabled:opacity-40 disabled:shadow-none ${
           isRunning ? 'bg-brick active:bg-brick/90' : 'bg-mocha active:bg-mocha-dark'
         }`}
