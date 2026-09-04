@@ -18,8 +18,8 @@ export function restDays(roastDate?: string, at: Date = new Date()): number | nu
   const roast = new Date(roastDate)
   if (Number.isNaN(roast.getTime())) return null
   const msPerDay = 24 * 60 * 60 * 1000
-  const roastUtc = Date.UTC(roast.getFullYear(), roast.getMonth(), roast.getDate())
-  const atUtc = Date.UTC(at.getFullYear(), at.getMonth(), at.getDate())
+  const roastUtc = Date.UTC(roast.getUTCFullYear(), roast.getUTCMonth(), roast.getUTCDate())
+  const atUtc = Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate())
   return Math.round((atUtc - roastUtc) / msPerDay)
 }
 

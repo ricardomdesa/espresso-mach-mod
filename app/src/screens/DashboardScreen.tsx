@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useMachine } from '../context/MachineContext'
 import { useFormatters } from '../utils/formatters'
 import { useMachineApi } from '../hooks/useMachineApi'
-import { useLocalHistory } from '../hooks/useLocalHistory'
+import { useShots } from '../hooks/useShots'
 import Screen from '../components/Screen'
 import TimerDisplay from '../components/TimerDisplay'
 import LiveChart from '../components/LiveChart'
@@ -108,7 +108,7 @@ const DashboardScreen: React.FC = () => {
     useMachine()
   const { temp } = useFormatters()
   const { startExtraction, stopExtraction, setLed, setPump } = useMachineApi()
-  const { add: addHistoryRecord } = useLocalHistory()
+  const { add: addHistoryRecord } = useShots()
 
   const [chartData, setChartData] = useState<WsFrame[]>([])
   const [error, setError] = useState<string | null>(null)

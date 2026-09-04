@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useLocalHistory } from '../hooks/useLocalHistory'
+import { useShots } from '../hooks/useShots'
 import { useFormatters } from '../utils/formatters'
 import Screen from '../components/Screen'
 import LiveChart from '../components/LiveChart'
@@ -111,7 +111,7 @@ const HistoryItem: React.FC<HistoryItemProps> = ({ record: r, onSaveNotes, onRem
 }
 
 const HistoryScreen: React.FC = () => {
-  const { records, loaded, update, remove, clear } = useLocalHistory()
+  const { records, loaded, update, remove, clear } = useShots()
 
   const handleClear = () => {
     if (!confirm('Apagar todo o historico de extracoes?')) return
