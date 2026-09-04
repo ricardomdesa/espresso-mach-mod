@@ -19,9 +19,11 @@ Roadmap de implementação. Cada épico possui um SDD em `docs/sdd/NNN-*.md` que
 | 5 | **Wi-Fi + provisionamento** | Wi-Fi AP/STA próprio (sem WiFiManager), AP `Philco-Setup` abre só com hold de 10 s do botão na tela inicial (nunca sozinho), credencial em NVS, mDNS (`philco.local`), `GET /api/status`. | 4 | Implementado (`005-wifi-provisionamento.md`) |
 | 6 | **API REST/WebSocket** | Contrato de comunicação ESP32↔app: REST p/ comandos (setpoint, PID, start/stop extração, CRUD de perfis), WebSocket `/ws` p/ streaming de leituras (100 ms) + eventos, persistência em NVS (setpoints, PID, perfis). | 5 | Implementado (`006-api-rest-websocket.md`) |
 | 7 | **App Android (React + Capacitor)** | Descoberta mDNS, dashboard WebSocket, ajuste PID/temp, CRUD perfis, gráficos ao vivo, histórico local. | 6 | SDD pronto (`007-app-android.md`) |
+| 8 | **Diário do barista** | Registro estruturado das extrações: preparo antes do shot (grão, moagem, dose, distribuição, fotos do puck), avaliação depois (yield, sabor, nota, fotos, próxima mudança), cadastro de grãos, linhagem/diff entre shots. Tudo local, sem backend. | 7 | SDD pronto (`008-diario-do-barista.md`) |
 
 ## Decisões entre épicos
 
 - Modelo de dados compartilhado (`DisplayModel`) é criado no épico 1 e consumido por todos os demais — contrato estável para evitar retrabalho.
 - Setpoints e ganhos PID fixos em `#define`/consts no MVP (épicos 3–4). Migração para NVS na Fase 2.
 - **Ordem de execução real:** os épicos 5 e 6 foram implementados antes dos 2–4, para destravar o app. Com isso, temperatura e pressão ainda vêm de `SensorFake` e o "estado" da máquina (`idle`/`heating`/`extracting`) é derivado do cronômetro e do erro de temperatura — não de um PID real. Os épicos 2–4 substituem os fakes sem mudar o contrato da API.
+- O épico 8 substitui o campo de texto livre `ExtractionRecord.notes` por um registro estruturado, e reorganiza o storage local (índice + shard por shot, fotos no Filesystem). O contrato da API do ESP32 não muda: o diário é inteiramente do lado do app.
