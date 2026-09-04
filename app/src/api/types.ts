@@ -128,3 +128,93 @@ export interface ExtractionRecord {
   /** Anotacoes livres do usuario (moagem, dose, sabor...). Editavel depois. */
   notes?: string
 }
+
+// ---------- diário do barista (SDD-008) ----------
+
+export type ShotStatus = 'draft' | 'extracting' | 'pending_review' | 'done'
+
+export type PhotoKind = 'puckLevel' | 'puckTamped' | 'stream' | 'cup' | 'spentPuck'
+
+export type TasteTag =
+  | 'sour' | 'bitter' | 'astringent' | 'balanced'
+  | 'watery' | 'sweet' | 'fruity' | 'burnt'
+
+export interface ShotPhoto {
+  /** Caminho relativo em Directory.Data: shots/<shotId>/<uuid>.jpg */
+  path: string
+  kind: PhotoKind
+  takenAt: string
+}
+
+export interface ShotLog {
+  status: ShotStatus
+
+  // --- preparo (antes da extração) ---
+  beanId?: string
+  /** Texto: cada moedor tem escala própria (D10). */
+  grindSetting?: string
+  doseG?: number
+  distribution?: 'none' | 'wdt' | 'tap'
+  /** Shot que serviu de base; alimenta o diff (RF-16). */
+  parentShotId?: string
+  /** Derivado da tela de preparo, não digitado (D6). */
+  changedFields?: string[]
+
+  // --- avaliação (depois de provar) ---
+  yieldG?: number
+  firstDropS?: number
+  taste?: TasteTag[]
+  channeling?: boolean
+  /** 1 a 5. */
+  rating?: number
+  notes?: string
+  /** Aparece no topo do preparo seguinte (RF-06). */
+  nextChange?: string
+
+  photos?: ShotPhoto[]
+
+  // --- migração ---
+  /** `notes` do schema 1, preservado literalmente (RF-23). */
+  legacyNotes?: string
+}
+
+/** Estende o ExtractionRecord atual; nenhum campo existente muda de tipo. */
+export interface ShotRecord extends ExtractionRecord {
+  schema: 2
+  source: 'machine' | 'manual'
+  log: ShotLog
+}
+
+/** O que a lista precisa. Nunca contém `samples` nem fotos. */
+export interface ShotIndexEntry {
+  id: string
+  date: string
+  status: ShotStatus
+  profileName: string
+  duration_s: number
+  beanId?: string
+  grindSetting?: string
+  doseG?: number
+  yieldG?: number
+  rating?: number
+  hasCurve: boolean
+  thumbPath?: string
+}
+
+// ---------- grão ----------
+
+export interface Bean {
+  id: string
+  name: string
+  roaster?: string
+  origin?: string
+  process?: string
+  roastLevel?: 'light' | 'medium' | 'dark'
+  /** ISO date; base do cálculo de dias de descanso (RF-18). */
+  roastDate?: string
+  openedDate?: string
+  pricePerKg?: number
+  photoPath?: string
+  notes?: string
+  archived: boolean
+}
