@@ -1,6 +1,8 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useMachine } from './context/MachineContext'
+import { getIndex, migrate } from './utils/shotRepository'
+import { sweepOrphanPhotos } from './utils/photoStore'
 import SetupScreen from './screens/SetupScreen'
 import ProvisionScreen from './screens/ProvisionScreen'
 import DashboardScreen from './screens/DashboardScreen'
@@ -18,6 +20,18 @@ const App: React.FC = () => {
   // e ajustes/perfis funcionam via cache local. Só a primeira execução, sem
   // endereço nenhum, cai direto no /setup.
   const shellReady = connected || !!baseUrl
+
+  // Migração do histórico (schema 1 -> 2, SDD-008) precisa terminar antes da
+  // primeira renderização do histórico ou de qualquer tela que leia shots.
+  const [migrated, setMigrated] = useState(false)
+  useEffect(() => {
+    migrate()
+      .finally(() => setMigrated(true))
+      .then(() => getIndex())
+      .then((index) => sweepOrphanPhotos(index.map((e) => e.id)))
+      .catch(() => {}) // varredura de orfaos (R3): melhor esforco, nao bloqueia o app
+  }, [])
+  if (!migrated) return null
 
   return (
     <div className="min-h-screen bg-latte text-ink">
