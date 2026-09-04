@@ -1,5 +1,6 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
+import { usePendingReviewCount } from '../hooks/usePendingReviewCount'
 
 interface NavItem {
   to: string
@@ -70,6 +71,8 @@ const items: NavItem[] = [
 ]
 
 const BottomNav: React.FC = () => {
+  const pendingCount = usePendingReviewCount()
+
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-cream/95 backdrop-blur safe-area-bottom">
       <ul className="mx-auto flex max-w-md">
@@ -87,11 +90,17 @@ const BottomNav: React.FC = () => {
               {({ isActive }) => (
                 <>
                   <span
-                    className={`flex h-8 w-12 items-center justify-center rounded-full transition-colors ${
+                    className={`relative flex h-8 w-12 items-center justify-center rounded-full transition-colors ${
                       isActive ? 'bg-mocha/10' : ''
                     }`}
                   >
                     {item.icon}
+                    {/* Pendentes de avaliacao (D8/RF-10): sinal passivo, sem bloquear. */}
+                    {item.to === '/history' && pendingCount > 0 && (
+                      <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brick px-1 text-[9px] font-bold text-cream">
+                        {pendingCount > 9 ? '9+' : pendingCount}
+                      </span>
+                    )}
                   </span>
                   {item.label}
                 </>

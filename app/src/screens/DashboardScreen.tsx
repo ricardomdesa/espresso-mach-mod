@@ -4,9 +4,11 @@ import { useMachine } from '../context/MachineContext'
 import { useFormatters } from '../utils/formatters'
 import { useMachineApi } from '../hooks/useMachineApi'
 import { useShots } from '../hooks/useShots'
+import { useDraft } from '../hooks/useDraft'
 import Screen from '../components/Screen'
 import TimerDisplay from '../components/TimerDisplay'
 import LiveChart from '../components/LiveChart'
+import DraftChip from '../components/DraftChip'
 import { MachineState, MachineStatus, WsFrame } from '../api/types'
 
 const stateLabel: Record<MachineState, string> = {
@@ -109,6 +111,7 @@ const DashboardScreen: React.FC = () => {
   const { temp } = useFormatters()
   const { startExtraction, stopExtraction, setLed, setPump } = useMachineApi()
   const { add: addHistoryRecord } = useShots()
+  const { draft, reload: reloadDraft } = useDraft()
 
   const [chartData, setChartData] = useState<WsFrame[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -175,6 +178,9 @@ const DashboardScreen: React.FC = () => {
             temp: round1(f.temp),
             target: f.target != null ? round1(f.target) : undefined,
           }))
+        // bindExtraction (chamado dentro de addHistoryRecord) anexa a um
+        // rascunho aberto quando existe (D2/RF-08) — recarrega pra o
+        // DraftChip sumir do dashboard assim que a extracao vira pending_review.
         addHistoryRecord({
           duration_s: last.timer,
           profileName: name,
@@ -182,14 +188,14 @@ const DashboardScreen: React.FC = () => {
           pressAvg,
           tempTarget: last.target != null ? round1(last.target) : undefined,
           samples,
-        })
+        }).then(() => reloadDraft())
       }
       sessionFramesRef.current = []
       sessionIncompleteRef.current = false
       // limpar grafico apos a extração
       setChartData([])
     }
-  }, [currentFrame, addHistoryRecord])
+  }, [currentFrame, addHistoryRecord, reloadDraft])
 
   const runControl = async (fn: () => Promise<unknown>) => {
     setError(null)
@@ -238,6 +244,19 @@ const DashboardScreen: React.FC = () => {
         <div className="mb-4 rounded-xl border border-brick/30 bg-brick/10 px-4 py-3 text-sm text-brick">
           <span className="font-semibold">Maquina reportou erro:</span> {machineError}
         </div>
+      )}
+
+      {/* Rascunho de preparo (SDD-008): resumo com um toque pra continuar, ou
+          convite pra abrir um novo, quando nenhum esta aberto (D3). */}
+      {draft ? (
+        <DraftChip draft={draft} />
+      ) : (
+        <Link
+          to="/prep"
+          className="mb-3 block rounded-2xl border border-dashed border-line-strong px-4 py-3 text-center text-sm font-medium text-muted active:bg-foam"
+        >
+          + Preparar shot
+        </Link>
       )}
 
       {/* Leituras principais */}

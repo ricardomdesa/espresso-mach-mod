@@ -191,6 +191,22 @@ export async function discardDraft(): Promise<void> {
  * anexa os dados a ele; sem rascunho, cria um registro novo em
  * `pending_review` (RF-09) — o comportamento de hoje, preservado.
  */
+/** Conclui o rascunho aberto sem extracao pelo app (RF-11): tempo digitado a mao. */
+export async function completeWithoutCurve(durationS: number): Promise<ShotRecord> {
+  const draft = await getDraft()
+  if (!draft) throw new Error('Nenhum rascunho aberto')
+
+  const shot: ShotRecord = {
+    ...draft,
+    duration_s: durationS,
+    source: 'manual',
+    log: { ...draft.log, status: 'pending_review' },
+  }
+  await saveShot(shot)
+  await Preferences.remove({ key: DRAFT_KEY })
+  return shot
+}
+
 export async function bindExtraction(machineData: MachineShotData): Promise<ShotRecord> {
   const draft = await getDraft()
 
