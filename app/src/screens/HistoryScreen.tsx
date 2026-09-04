@@ -3,10 +3,10 @@ import { useShots } from '../hooks/useShots'
 import { useFormatters } from '../utils/formatters'
 import Screen from '../components/Screen'
 import LiveChart from '../components/LiveChart'
-import { ExtractionRecord } from '../api/types'
+import { ShotRecord } from '../api/types'
 
 interface HistoryItemProps {
-  record: ExtractionRecord
+  record: ShotRecord
   onSaveNotes: (id: string, notes: string) => Promise<void>
   onRemove: (id: string) => Promise<void>
 }
@@ -14,10 +14,13 @@ interface HistoryItemProps {
 const HistoryItem: React.FC<HistoryItemProps> = ({ record: r, onSaveNotes, onRemove }) => {
   const { temp, timer } = useFormatters()
   const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState(r.notes ?? '')
+  // `log.notes` (D7) e o destino atual; `notes`/`legacyNotes` na raiz cobrem
+  // registros migrados ou salvos antes desta correcao.
+  const savedNotes = r.log.notes ?? r.notes ?? r.log.legacyNotes ?? ''
+  const [draft, setDraft] = useState(savedNotes)
   const [saving, setSaving] = useState(false)
 
-  const dirty = draft.trim() !== (r.notes ?? '').trim()
+  const dirty = draft.trim() !== savedNotes.trim()
   const hasChart = !!r.samples && r.samples.length > 1
 
   const handleSave = async () => {
@@ -68,7 +71,7 @@ const HistoryItem: React.FC<HistoryItemProps> = ({ record: r, onSaveNotes, onRem
       </div>
 
       {!open ? (
-        r.notes && <p className="mt-2 line-clamp-2 text-xs italic text-muted">{r.notes}</p>
+        savedNotes && <p className="mt-2 line-clamp-2 text-xs italic text-muted">{savedNotes}</p>
       ) : (
         <div className="mt-3 space-y-3 border-t border-line pt-3">
           {hasChart ? (
@@ -111,14 +114,14 @@ const HistoryItem: React.FC<HistoryItemProps> = ({ record: r, onSaveNotes, onRem
 }
 
 const HistoryScreen: React.FC = () => {
-  const { records, loaded, update, remove, clear } = useShots()
+  const { records, loaded, updateNotes, remove, clear } = useShots()
 
   const handleClear = () => {
     if (!confirm('Apagar todo o historico de extracoes?')) return
     clear()
   }
 
-  const handleSaveNotes = (id: string, notes: string) => update(id, { notes })
+  const handleSaveNotes = (id: string, notes: string) => updateNotes(id, notes)
 
   return (
     <Screen

@@ -176,8 +176,6 @@ const DashboardScreen: React.FC = () => {
             target: f.target != null ? round1(f.target) : undefined,
           }))
         addHistoryRecord({
-          id: `${Date.now()}`,
-          date: new Date().toISOString(),
           duration_s: last.timer,
           profileName: name,
           tempAvg,

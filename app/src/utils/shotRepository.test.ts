@@ -34,6 +34,7 @@ const {
   getShot,
   saveShot,
   removeShot,
+  clearAll,
   getDraft,
   openDraft,
   discardDraft,
@@ -142,12 +143,67 @@ describe('indice', () => {
     const index = await getIndex()
     expect(index.map((e: ShotIndexEntry) => e.id)).toEqual(['new', 'old'])
   })
+
+  it('mantem no maximo 500 shots, descartando os mais antigos', async () => {
+    const base = {
+      duration_s: 30,
+      profileName: 'P',
+      tempAvg: 93,
+      pressAvg: 9,
+      schema: 2 as const,
+      source: 'manual' as const,
+      log: { status: 'done' as const },
+    }
+    for (let i = 0; i < 501; i++) {
+      const date = new Date(2026, 0, 1, 0, 0, i).toISOString()
+      await saveShot({ ...base, id: `s${i}`, date })
+    }
+    const index = await getIndex()
+    expect(index).toHaveLength(500)
+    expect(index.some((e) => e.id === 's0')).toBe(false)
+    expect(await getShot('s0')).toBeNull()
+    expect(await getShot('s500')).not.toBeNull()
+  })
+
+  it('clearAll apaga todos os shots sem deixar entradas orfas', async () => {
+    const base = {
+      duration_s: 30,
+      profileName: 'P',
+      tempAvg: 93,
+      pressAvg: 9,
+      schema: 2 as const,
+      source: 'manual' as const,
+      log: { status: 'done' as const },
+    }
+    await saveShot({ ...base, id: 's1', date: '2026-01-01T00:00:00.000Z' })
+    await saveShot({ ...base, id: 's2', date: '2026-01-02T00:00:00.000Z' })
+    await saveShot({ ...base, id: 's3', date: '2026-01-03T00:00:00.000Z' })
+
+    await clearAll()
+
+    expect(await getIndex()).toEqual([])
+    expect(await getShot('s1')).toBeNull()
+    expect(await getShot('s2')).toBeNull()
+    expect(await getShot('s3')).toBeNull()
+  })
 })
 
 describe('rascunho', () => {
   it('openDraft recusa criar um segundo rascunho', async () => {
     await openDraft({ beanId: 'bean1' })
     await expect(openDraft({ beanId: 'bean2' })).rejects.toThrow()
+  })
+
+  it('duas chamadas concorrentes: so uma cria rascunho, a outra rejeita', async () => {
+    const [a, b] = await Promise.allSettled([
+      openDraft({ beanId: 'bean1' }),
+      openDraft({ beanId: 'bean2' }),
+    ])
+    const fulfilled = [a, b].filter((r) => r.status === 'fulfilled')
+    const rejected = [a, b].filter((r) => r.status === 'rejected')
+    expect(fulfilled).toHaveLength(1)
+    expect(rejected).toHaveLength(1)
+    expect(await getIndex()).toHaveLength(1)
   })
 
   it('discardDraft limpa a chave de rascunho', async () => {

@@ -10,6 +10,9 @@ const SHOT_KEY = (id: string) => `philco.shot.${id}`
 const DRAFT_KEY = 'philco.shots.draft'
 const SCHEMA_KEY = 'philco.schema'
 const LEGACY_HISTORY_KEY = 'philco_extraction_history'
+// Mesmo teto do antigo useLocalHistory (.slice(0, 500)) — sem isso o indice
+// e os shards crescem sem limite (R2).
+const MAX_SHOTS = 500
 
 /** Dados que a extracao real produz, antes de virar (ou completar) um ShotRecord. */
 export type MachineShotData = Pick<
@@ -53,7 +56,13 @@ function toIndexEntry(shot: ShotRecord): ShotIndexEntry {
 
 async function writeIndex(index: ShotIndexEntry[]): Promise<void> {
   const sorted = [...index].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
-  await Preferences.set({ key: INDEX_KEY, value: JSON.stringify(sorted) })
+  const kept = sorted.slice(0, MAX_SHOTS)
+  const overflow = sorted.slice(MAX_SHOTS)
+  await Preferences.set({ key: INDEX_KEY, value: JSON.stringify(kept) })
+  for (const entry of overflow) {
+    await Preferences.remove({ key: SHOT_KEY(entry.id) })
+    await removeShotPhotos(entry.id)
+  }
 }
 
 async function reindex(shot: ShotRecord): Promise<void> {
@@ -109,6 +118,21 @@ export async function removeShot(id: string): Promise<void> {
   await removeShotPhotos(id)
 }
 
+/**
+ * Apaga todos os shots de uma vez. Le o indice uma unica vez e remove cada
+ * shard sequencialmente — remove N chamadas concorrentes de removeShot(),
+ * que fariam leitura-e-escrita do mesmo indice em paralelo e perderiam
+ * entradas (o ultimo write vence).
+ */
+export async function clearAll(): Promise<void> {
+  const index = await getIndex()
+  for (const entry of index) {
+    await Preferences.remove({ key: SHOT_KEY(entry.id) })
+    await removeShotPhotos(entry.id)
+  }
+  await Preferences.set({ key: INDEX_KEY, value: JSON.stringify([]) })
+}
+
 /** Diario completo em JSON, fotos referenciadas por caminho relativo (RF-22). */
 export async function exportAll(): Promise<string> {
   const index = await getIndex()
@@ -122,26 +146,36 @@ export async function getDraft(): Promise<ShotRecord | null> {
   return getShot(id)
 }
 
-/** No maximo um rascunho aberto por vez (D3). */
-export async function openDraft(seed: Partial<ShotLog>): Promise<ShotRecord> {
-  const existing = await getDraft()
-  if (existing) throw new Error('Ja existe um rascunho aberto')
+// Encadeia as chamadas de openDraft: check-then-act em DRAFT_KEY nao e
+// atomico no Preferences, entao duas chamadas concorrentes (duplo toque,
+// efeito disparado duas vezes) podiam ambas passar no `getDraft()` antes de
+// qualquer uma escrever DRAFT_KEY e criar dois rascunhos orfaos (D3).
+let draftLock: Promise<unknown> = Promise.resolve()
 
-  const id = newId()
-  const shot: ShotRecord = {
-    id,
-    date: new Date().toISOString(),
-    duration_s: 0,
-    profileName: '',
-    tempAvg: 0,
-    pressAvg: 0,
-    schema: 2,
-    source: 'manual',
-    log: { status: 'draft', ...seed },
-  }
-  await saveShot(shot)
-  await Preferences.set({ key: DRAFT_KEY, value: id })
-  return shot
+/** No maximo um rascunho aberto por vez (D3). */
+export function openDraft(seed: Partial<ShotLog>): Promise<ShotRecord> {
+  const run = draftLock.then(async () => {
+    const existing = await getDraft()
+    if (existing) throw new Error('Ja existe um rascunho aberto')
+
+    const id = newId()
+    const shot: ShotRecord = {
+      id,
+      date: new Date().toISOString(),
+      duration_s: 0,
+      profileName: '',
+      tempAvg: 0,
+      pressAvg: 0,
+      schema: 2,
+      source: 'manual',
+      log: { status: 'draft', ...seed },
+    }
+    await saveShot(shot)
+    await Preferences.set({ key: DRAFT_KEY, value: id })
+    return shot
+  })
+  draftLock = run.catch(() => {})
+  return run
 }
 
 /** Descarta o rascunho aberto e as fotos que ele ja gravou (RF-07). */

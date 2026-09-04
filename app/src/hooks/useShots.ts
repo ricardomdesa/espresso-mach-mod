@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ExtractionRecord, ShotRecord } from '../api/types'
-import { getIndex, getShot, removeShot, saveShot } from '../utils/shotRepository'
+import { ShotRecord } from '../api/types'
+import {
+  MachineShotData,
+  bindExtraction,
+  clearAll,
+  getIndex,
+  getShot,
+  removeShot,
+  saveShot,
+} from '../utils/shotRepository'
 
 /**
  * Substitui `useLocalHistory` (Fase 1, task 6) mantendo a mesma forma:
- * records/loaded/add/remove/update/clear/reload. `add`/`update` ainda
- * recebem campos de `ExtractionRecord` no nivel raiz do shot — a migracao
- * desses campos para dentro de `log` (D7) acontece quando PrepScreen e
- * ShotDetailScreen substituirem HistoryScreen na Fase 3.
+ * records/loaded/add/remove/updateNotes/clear/reload.
  */
 export function useShots() {
   const [records, setRecords] = useState<ShotRecord[]>([])
@@ -28,14 +33,10 @@ export function useShots() {
   }, [load])
 
   const add = useCallback(
-    async (record: ExtractionRecord) => {
-      const shot: ShotRecord = {
-        ...record,
-        schema: 2,
-        source: 'machine',
-        log: { status: 'done' },
-      }
-      await saveShot(shot)
+    async (data: MachineShotData) => {
+      // Unico ponto de juncao maquina/diario (D2): anexa a um rascunho
+      // aberto se existir, ou cria um registro novo em pending_review.
+      await bindExtraction(data)
       await load()
     },
     [load],
@@ -49,20 +50,20 @@ export function useShots() {
     [load],
   )
 
-  const update = useCallback(
-    async (id: string, patch: Partial<ExtractionRecord>) => {
+  const updateNotes = useCallback(
+    async (id: string, notes: string) => {
       const current = recordsRef.current.find((r) => r.id === id)
       if (!current) return
-      await saveShot({ ...current, ...patch })
+      await saveShot({ ...current, log: { ...current.log, notes } })
       await load()
     },
     [load],
   )
 
   const clear = useCallback(async () => {
-    await Promise.all(recordsRef.current.map((r) => removeShot(r.id)))
+    await clearAll()
     await load()
   }, [load])
 
-  return { records, loaded, add, remove, update, clear, reload: load }
+  return { records, loaded, add, remove, updateNotes, clear, reload: load }
 }
