@@ -7,6 +7,7 @@ import PhotoPicker from '../components/PhotoPicker'
 import TasteTags from '../components/TasteTags'
 import { getShot, removeShot, saveShot } from '../utils/shotRepository'
 import { flowRate, ratio } from '../utils/derived'
+import { errorMessage } from '../utils/errors'
 import { useFormatters } from '../utils/formatters'
 import { ShotLog, ShotPhoto, ShotRecord, TasteTag } from '../api/types'
 
@@ -51,7 +52,7 @@ const ShotDetailScreen: React.FC = () => {
     if (!shot) return
     const next: ShotRecord = { ...shot, log: { ...shot.log, photos } }
     setShot(next)
-    saveShot(next).catch(() => {})
+    saveShot(next).catch((e) => setError('Erro ao salvar foto: ' + errorMessage(e)))
   }
 
   const handleSave = async () => {
@@ -73,7 +74,7 @@ const ShotDetailScreen: React.FC = () => {
       await saveShot({ ...shot, log })
       navigate('/history')
     } catch (e) {
-      setError('Erro ao salvar: ' + (e as Error).message)
+      setError('Erro ao salvar: ' + errorMessage(e))
     } finally {
       setBusy(false)
     }
@@ -87,7 +88,7 @@ const ShotDetailScreen: React.FC = () => {
       await removeShot(shot.id)
       navigate('/history')
     } catch (e) {
-      setError('Erro ao apagar: ' + (e as Error).message)
+      setError('Erro ao apagar: ' + errorMessage(e))
       setBusy(false)
     }
   }

@@ -1,6 +1,11 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { PhotoKind, ShotPhoto } from '../api/types'
 import { capturePhoto, readPhotoDataUrl, removePhoto } from '../utils/photoStore'
+import { errorMessage } from '../utils/errors'
+
+function isUserCancelled(e: unknown): boolean {
+  return /cancel/i.test(errorMessage(e))
+}
 
 const KIND_LABELS: Record<PhotoKind, string> = {
   puckLevel: 'Puck nivelado',
@@ -58,18 +63,25 @@ interface PhotoPickerProps {
 const PhotoPicker: React.FC<PhotoPickerProps> = ({ shotId, photos, onChange }) => {
   const [busyKind, setBusyKind] = useState<PhotoKind | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const photosRef = useRef(photos)
+  photosRef.current = photos
 
   const atCap = photos.length >= MAX_PHOTOS
+  const busy = busyKind !== null
 
   const handleCapture = async (kind: PhotoKind) => {
+    if (busy || photosRef.current.length >= MAX_PHOTOS) return
     setError(null)
     setBusyKind(kind)
     try {
       const photo = await capturePhoto(shotId, kind)
-      onChange([...photos, photo])
+      onChange([...photosRef.current, photo])
     } catch (e) {
-      // R5: sem permissao de camera, degrada pra "sem foto" em vez de travar.
-      setError('Nao foi possivel usar a camera: ' + (e as Error).message)
+      // Usuario cancelou a captura: nao e falha, so nao ha foto pra adicionar.
+      if (!isUserCancelled(e)) {
+        // R5: sem permissao/camera indisponivel, degrada pra "sem foto" em vez de travar.
+        setError('Nao foi possivel usar a camera: ' + errorMessage(e))
+      }
     } finally {
       setBusyKind(null)
     }
@@ -101,7 +113,7 @@ const PhotoPicker: React.FC<PhotoPickerProps> = ({ shotId, photos, onChange }) =
               <button
                 type="button"
                 onClick={() => handleCapture(kind)}
-                disabled={atCap || busyKind === kind}
+                disabled={atCap || busy}
                 aria-label={`Tirar foto: ${KIND_LABELS[kind]}`}
                 className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-dashed border-line-strong text-2xl font-light text-muted active:bg-foam disabled:opacity-40"
               >

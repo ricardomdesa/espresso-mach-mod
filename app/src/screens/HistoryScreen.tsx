@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import Screen from '../components/Screen'
 import ShotCard from '../components/ShotCard'
 import { ShotIndexEntry } from '../api/types'
@@ -12,17 +12,24 @@ import { clearAll, getIndex, onIndexChange } from '../utils/shotRepository'
 function useShotIndex() {
   const [index, setIndex] = useState<ShotIndexEntry[]>([])
   const [loaded, setLoaded] = useState(false)
+  const mountedRef = useRef(true)
 
   const refresh = useCallback(() => {
     getIndex().then((list) => {
+      if (!mountedRef.current) return
       setIndex(list)
       setLoaded(true)
     })
   }, [])
 
   useEffect(() => {
+    mountedRef.current = true
     refresh()
-    return onIndexChange(refresh)
+    const unsubscribe = onIndexChange(refresh)
+    return () => {
+      mountedRef.current = false
+      unsubscribe()
+    }
   }, [refresh])
 
   return { index, loaded }

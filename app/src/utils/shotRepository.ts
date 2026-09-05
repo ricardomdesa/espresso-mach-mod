@@ -142,7 +142,7 @@ export async function clearAll(): Promise<void> {
     await Preferences.remove({ key: SHOT_KEY(entry.id) })
     await removeShotPhotos(entry.id)
   }
-  await Preferences.set({ key: INDEX_KEY, value: JSON.stringify([]) })
+  await writeIndex([])
 }
 
 /** Diario completo em JSON, fotos referenciadas por caminho relativo (RF-22). */
