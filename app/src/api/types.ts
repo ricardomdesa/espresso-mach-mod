@@ -151,6 +151,8 @@ export interface ShotLog {
 
   // --- preparo (antes da extração) ---
   beanId?: string
+  /** Nome opcional dado pelo usuario; aparece no historico no lugar do padrao. */
+  label?: string
   /** Texto: cada moedor tem escala própria (D10). */
   grindSetting?: string
   doseG?: number
@@ -193,6 +195,7 @@ export interface ShotIndexEntry {
   profileName: string
   duration_s: number
   beanId?: string
+  label?: string
   grindSetting?: string
   doseG?: number
   yieldG?: number
