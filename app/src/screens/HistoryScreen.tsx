@@ -1,133 +1,53 @@
-import React, { useState } from 'react'
-import { useShots } from '../hooks/useShots'
-import { useFormatters } from '../utils/formatters'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import Screen from '../components/Screen'
-import LiveChart from '../components/LiveChart'
-import { ShotRecord } from '../api/types'
+import ShotCard from '../components/ShotCard'
+import { ShotIndexEntry } from '../api/types'
+import { clearAll, getIndex, onIndexChange } from '../utils/shotRepository'
 
-interface HistoryItemProps {
-  record: ShotRecord
-  onSaveNotes: (id: string, notes: string) => Promise<void>
-  onRemove: (id: string) => Promise<void>
-}
+/**
+ * Le so o indice (RF-20/RNF-01): nenhuma curva ou foto carrega so pra
+ * desenhar a lista. Reroda em qualquer escrita de indice, nao so ao entrar
+ * na tela — mesma fonte que `usePendingReviewCount`.
+ */
+function useShotIndex() {
+  const [index, setIndex] = useState<ShotIndexEntry[]>([])
+  const [loaded, setLoaded] = useState(false)
+  const mountedRef = useRef(true)
 
-const HistoryItem: React.FC<HistoryItemProps> = ({ record: r, onSaveNotes, onRemove }) => {
-  const { temp, timer } = useFormatters()
-  const [open, setOpen] = useState(false)
-  // `log.notes` (D7) e o destino atual; `notes`/`legacyNotes` na raiz cobrem
-  // registros migrados ou salvos antes desta correcao.
-  const savedNotes = r.log.notes ?? r.notes ?? r.log.legacyNotes ?? ''
-  const [draft, setDraft] = useState(savedNotes)
-  const [saving, setSaving] = useState(false)
+  const refresh = useCallback(() => {
+    getIndex().then((list) => {
+      if (!mountedRef.current) return
+      setIndex(list)
+      setLoaded(true)
+    })
+  }, [])
 
-  const dirty = draft.trim() !== savedNotes.trim()
-  const hasChart = !!r.samples && r.samples.length > 1
-
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      await onSaveNotes(r.id, draft.trim())
-    } finally {
-      setSaving(false)
+  useEffect(() => {
+    mountedRef.current = true
+    refresh()
+    const unsubscribe = onIndexChange(refresh)
+    return () => {
+      mountedRef.current = false
+      unsubscribe()
     }
-  }
+  }, [refresh])
 
-  return (
-    <li className="rounded-2xl border border-line bg-cream p-4 shadow-card">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-baseline justify-between gap-3 text-left"
-      >
-        <span className="truncate font-semibold text-ink">{r.profileName}</span>
-        <span className="shrink-0 text-xs text-muted">
-          {new Date(r.date).toLocaleString('pt-BR', {
-            day: '2-digit',
-            month: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </span>
-      </button>
-
-      <div className="mt-3 grid grid-cols-3 gap-2 border-t border-line pt-3">
-        <div>
-          <div className="text-[11px] uppercase tracking-wide text-muted">Tempo</div>
-          <div className="tabular-live mt-0.5 text-sm font-semibold text-ink">
-            {timer(r.duration_s)}
-          </div>
-        </div>
-        <div>
-          <div className="text-[11px] uppercase tracking-wide text-muted">Temp media</div>
-          <div className="tabular-live mt-0.5 text-sm font-semibold text-roast">
-            {temp(r.tempAvg)}
-          </div>
-        </div>
-        <div>
-          <div className="text-[11px] uppercase tracking-wide text-muted">Alvo</div>
-          <div className="tabular-live mt-0.5 text-sm font-semibold text-muted">
-            {r.tempTarget != null ? temp(r.tempTarget) : '--'}
-          </div>
-        </div>
-      </div>
-
-      {!open ? (
-        savedNotes && <p className="mt-2 line-clamp-2 text-xs italic text-muted">{savedNotes}</p>
-      ) : (
-        <div className="mt-3 space-y-3 border-t border-line pt-3">
-          {hasChart ? (
-            <LiveChart data={r.samples!} showTarget={r.tempTarget != null} />
-          ) : (
-            <p className="text-xs text-muted">Sem curva de temperatura para esta extracao.</p>
-          )}
-
-          <div>
-            <label className="text-[11px] uppercase tracking-wide text-muted">
-              Descricao
-            </label>
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              rows={3}
-              placeholder="Moagem, dose, sabor, ajustes..."
-              className="mt-1 w-full rounded-xl border border-line bg-foam px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-mocha focus:outline-none"
-            />
-            <div className="mt-2 flex items-center justify-between">
-              <button
-                onClick={() => onRemove(r.id)}
-                className="text-xs font-medium text-brick active:opacity-70"
-              >
-                Apagar
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={!dirty || saving}
-                className="rounded-xl bg-mocha px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-cream disabled:opacity-40"
-              >
-                {saving ? 'Salvando...' : 'Salvar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </li>
-  )
+  return { index, loaded }
 }
 
 const HistoryScreen: React.FC = () => {
-  const { records, loaded, updateNotes, remove, clear } = useShots()
+  const { index, loaded } = useShotIndex()
 
   const handleClear = () => {
     if (!confirm('Apagar todo o historico de extracoes?')) return
-    clear()
+    clearAll()
   }
-
-  const handleSaveNotes = (id: string, notes: string) => updateNotes(id, notes)
 
   return (
     <Screen
       title="Historico"
       action={
-        records.length > 0 ? (
+        index.length > 0 ? (
           <button
             onClick={handleClear}
             className="text-sm font-medium text-brick active:opacity-70"
@@ -139,7 +59,7 @@ const HistoryScreen: React.FC = () => {
     >
       {!loaded ? (
         <div className="py-16 text-center text-sm text-muted">Carregando...</div>
-      ) : records.length === 0 ? (
+      ) : index.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-line-strong bg-cream/60 px-6 py-12 text-center">
           <div className="text-sm font-medium text-ink">Nenhuma extracao ainda</div>
           <p className="mt-1 text-sm text-muted">
@@ -148,13 +68,10 @@ const HistoryScreen: React.FC = () => {
         </div>
       ) : (
         <ul className="space-y-3">
-          {records.map((r) => (
-            <HistoryItem
-              key={r.id}
-              record={r}
-              onSaveNotes={handleSaveNotes}
-              onRemove={remove}
-            />
+          {index.map((entry) => (
+            <li key={entry.id}>
+              <ShotCard entry={entry} />
+            </li>
           ))}
         </ul>
       )}

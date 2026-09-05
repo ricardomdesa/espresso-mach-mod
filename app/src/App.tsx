@@ -12,6 +12,7 @@ import ProfileEditorScreen from './screens/ProfileEditorScreen'
 import SettingsScreen from './screens/SettingsScreen'
 import HistoryScreen from './screens/HistoryScreen'
 import PrepScreen from './screens/PrepScreen'
+import ShotDetailScreen from './screens/ShotDetailScreen'
 
 const App: React.FC = () => {
   const { connected, baseUrl } = useMachine()
@@ -56,6 +57,7 @@ const App: React.FC = () => {
         <Route path="/profiles/:id/edit" element={<ProfileEditorScreen />} />
         <Route path="/settings" element={<SettingsScreen />} />
         <Route path="/history" element={<HistoryScreen />} />
+        <Route path="/shots/:id" element={<ShotDetailScreen />} />
         {/* Preparo nao depende da maquina — abre offline, igual ao historico. */}
         <Route path="/prep" element={<PrepScreen />} />
         <Route path="*" element={<Navigate to="/" replace />} />

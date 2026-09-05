@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getIndex, onIndexChange } from '../utils/shotRepository'
 
 /**
@@ -9,16 +9,23 @@ import { getIndex, onIndexChange } from '../utils/shotRepository'
  */
 export function usePendingReviewCount(): number {
   const [count, setCount] = useState(0)
+  const mountedRef = useRef(true)
 
   const refresh = useCallback(() => {
     getIndex().then((index) => {
+      if (!mountedRef.current) return
       setCount(index.filter((e) => e.status === 'pending_review').length)
     })
   }, [])
 
   useEffect(() => {
+    mountedRef.current = true
     refresh()
-    return onIndexChange(refresh)
+    const unsubscribe = onIndexChange(refresh)
+    return () => {
+      mountedRef.current = false
+      unsubscribe()
+    }
   }, [refresh])
 
   return count
