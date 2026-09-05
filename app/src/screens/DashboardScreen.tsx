@@ -5,6 +5,7 @@ import { useFormatters } from '../utils/formatters'
 import { useMachineApi } from '../hooks/useMachineApi'
 import { useShots } from '../hooks/useShots'
 import { useDraft } from '../hooks/useDraft'
+import { round1 } from '../utils/derived'
 import Screen from '../components/Screen'
 import TimerDisplay from '../components/TimerDisplay'
 import LiveChart from '../components/LiveChart'
@@ -168,7 +169,6 @@ const DashboardScreen: React.FC = () => {
         // Amostra a curva pra ~120 pontos: 100ms/frame cheio estoura o
         // Preferences com 500 registros guardados. 1 ponto/s ja descreve a
         // oscilacao da caldeira.
-        const round1 = (n: number) => Math.round(n * 10) / 10
         const t0 = frames[0].t
         const stride = Math.max(1, Math.ceil(frames.length / 120))
         const samples = frames

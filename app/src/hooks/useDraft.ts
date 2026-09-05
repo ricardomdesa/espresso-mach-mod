@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ShotLog, ShotRecord } from '../api/types'
 import {
   completeWithoutCurve,
@@ -10,13 +10,17 @@ import {
 
 /** Rascunho aberto (D3): ler, criar, atualizar campo a campo, descartar, concluir sem curva. */
 export function useDraft() {
-  const [draft, setDraft] = useState<ShotRecord | null>(null)
-  const [loaded, setLoaded] = useState(false)
+  // undefined = ainda carregando; null = sem rascunho aberto.
+  const [draft, setDraft] = useState<ShotRecord | null | undefined>(undefined)
+  // Encadeia os saves campo-a-campo: sem isso, dois onChange em sequencia
+  // rapida (ex.: dois digitos de dose) disparam saveShot() concorrentes e o
+  // que resolver por ultimo no bridge nativo pode nao ser o mais recente,
+  // revertendo o rascunho persistido pra um valor mais antigo (RF-04).
+  const saveQueueRef = useRef<Promise<unknown>>(Promise.resolve())
 
   const load = useCallback(async () => {
     const d = await getDraft()
     setDraft(d)
-    setLoaded(true)
   }, [])
 
   useEffect(() => {
@@ -35,7 +39,7 @@ export function useDraft() {
     setDraft((prev) => {
       if (!prev) return prev
       const next: ShotRecord = { ...prev, log: { ...prev.log, ...patch } }
-      saveShot(next).catch(() => {})
+      saveQueueRef.current = saveQueueRef.current.then(() => saveShot(next)).catch(() => {})
       return next
     })
   }, [])
@@ -51,5 +55,5 @@ export function useDraft() {
     return shot
   }, [])
 
-  return { draft, loaded, open, update, discard, completeManual, reload: load }
+  return { draft, open, update, discard, completeManual, reload: load }
 }

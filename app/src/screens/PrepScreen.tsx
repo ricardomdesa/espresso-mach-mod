@@ -15,17 +15,20 @@ const distributionOptions: { value: NonNullable<ShotLog['distribution']>; label:
 
 const PrepScreen: React.FC = () => {
   const navigate = useNavigate()
-  const { draft, loaded, open, update, discard, completeManual } = useDraft()
+  const { draft, open, update, discard, completeManual, reload } = useDraft()
   const [previousGrind, setPreviousGrind] = useState<string | undefined>()
   const [manualOpen, setManualOpen] = useState(false)
   const [manualSeconds, setManualSeconds] = useState(25)
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Sem rascunho aberto ainda (chegou aqui direto, sem passar pelo DraftChip):
-  // cria um na hora (RF-01/D3 — openDraft ja recusa um segundo).
+  // cria um na hora (RF-01/D3 — openDraft ja recusa um segundo). Se abrir
+  // falhar por outra instancia ja ter criado o rascunho (race), recarrega em
+  // vez de deixar a tela presa em "Carregando..." pra sempre.
   useEffect(() => {
-    if (loaded && !draft) open({}).catch(() => {})
-  }, [loaded, draft, open])
+    if (draft === null) open({}).catch(() => reload())
+  }, [draft, open, reload])
 
   // So como referencia visual no GrindStepper (D10) — nao e prefill (RF-05/D6
   // ficam pra fase de linhagem).
@@ -39,9 +42,12 @@ const PrepScreen: React.FC = () => {
   const handleDiscard = async () => {
     if (!confirm('Descartar este rascunho e as fotos que ele ja tem?')) return
     setBusy(true)
+    setError(null)
     try {
       await discard()
       navigate('/')
+    } catch (e) {
+      setError('Erro ao descartar: ' + (e as Error).message)
     } finally {
       setBusy(false)
     }
@@ -49,15 +55,18 @@ const PrepScreen: React.FC = () => {
 
   const handleCompleteManual = async () => {
     setBusy(true)
+    setError(null)
     try {
       await completeManual(manualSeconds)
       navigate('/')
+    } catch (e) {
+      setError('Erro ao concluir: ' + (e as Error).message)
     } finally {
       setBusy(false)
     }
   }
 
-  if (!loaded || !draft) {
+  if (draft === undefined || draft === null) {
     return (
       <Screen title="Preparo" showNav={false}>
         <div className="py-16 text-center text-sm text-muted">Carregando...</div>
@@ -81,6 +90,12 @@ const PrepScreen: React.FC = () => {
         </button>
       }
     >
+      {error && (
+        <div className="mb-3 rounded-xl border border-brick/30 bg-brick/10 px-4 py-3 text-sm text-brick">
+          {error}
+        </div>
+      )}
+
       <div className="space-y-5">
         <div>
           <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted">

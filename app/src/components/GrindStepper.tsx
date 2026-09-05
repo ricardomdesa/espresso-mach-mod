@@ -1,4 +1,5 @@
 import React from 'react'
+import { round1 } from '../utils/derived'
 
 interface GrindStepperProps {
   value: string
@@ -15,12 +16,13 @@ const STEP = 1
  * contrario o campo se comporta como texto livre ("12 cliques").
  */
 const GrindStepper: React.FC<GrindStepperProps> = ({ value, previous, onChange }) => {
-  const numeric = value.trim() !== '' && Number.isFinite(Number(value))
+  // Teclado pt-BR manda virgula decimal (mesma convencao do NumberField).
+  const numeric = value.trim() !== '' && Number.isFinite(Number(value.replace(',', '.')))
 
   const bump = (delta: number) => {
-    const n = Number(value)
+    const n = Number(value.replace(',', '.'))
     const next = (Number.isFinite(n) ? n : 0) + delta
-    onChange(String(Math.round(next * 10) / 10))
+    onChange(String(round1(next)))
   }
 
   return (
