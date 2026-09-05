@@ -54,6 +54,17 @@ function toIndexEntry(shot: ShotRecord): ShotIndexEntry {
   }
 }
 
+// Assinantes de mudanca no indice (ex.: badge de pending-review na BottomNav)
+// nao tem como saber, so por troca de rota, quando outro componente grava um
+// shot — reindex() e o unico ponto por onde toda escrita de indice passa.
+type IndexListener = () => void
+const indexListeners = new Set<IndexListener>()
+
+export function onIndexChange(listener: IndexListener): () => void {
+  indexListeners.add(listener)
+  return () => indexListeners.delete(listener)
+}
+
 async function writeIndex(index: ShotIndexEntry[]): Promise<void> {
   const sorted = [...index].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
   const kept = sorted.slice(0, MAX_SHOTS)
@@ -63,6 +74,7 @@ async function writeIndex(index: ShotIndexEntry[]): Promise<void> {
     await Preferences.remove({ key: SHOT_KEY(entry.id) })
     await removeShotPhotos(entry.id)
   }
+  indexListeners.forEach((listener) => listener())
 }
 
 async function reindex(shot: ShotRecord): Promise<void> {
@@ -186,6 +198,28 @@ export async function discardDraft(): Promise<void> {
   await Preferences.remove({ key: DRAFT_KEY })
 }
 
+/** Fecha o rascunho aberto: aplica `patch`, marca `pending_review` e limpa DRAFT_KEY. */
+async function finalizeDraft(
+  draft: ShotRecord,
+  patch: Partial<ShotRecord>,
+): Promise<ShotRecord> {
+  const shot: ShotRecord = {
+    ...draft,
+    ...patch,
+    log: { ...draft.log, status: 'pending_review' },
+  }
+  await saveShot(shot)
+  await Preferences.remove({ key: DRAFT_KEY })
+  return shot
+}
+
+/** Conclui o rascunho aberto sem extracao pelo app (RF-11): tempo digitado a mao. */
+export async function completeWithoutCurve(durationS: number): Promise<ShotRecord> {
+  const draft = await getDraft()
+  if (!draft) throw new Error('Nenhum rascunho aberto')
+  return finalizeDraft(draft, { duration_s: durationS, source: 'manual' })
+}
+
 /**
  * Unico ponto de juncao entre a maquina e o diario (D2). Com rascunho aberto,
  * anexa os dados a ele; sem rascunho, cria um registro novo em
@@ -193,18 +227,7 @@ export async function discardDraft(): Promise<void> {
  */
 export async function bindExtraction(machineData: MachineShotData): Promise<ShotRecord> {
   const draft = await getDraft()
-
-  if (draft) {
-    const shot: ShotRecord = {
-      ...draft,
-      ...machineData,
-      source: 'machine',
-      log: { ...draft.log, status: 'pending_review' },
-    }
-    await saveShot(shot)
-    await Preferences.remove({ key: DRAFT_KEY })
-    return shot
-  }
+  if (draft) return finalizeDraft(draft, { ...machineData, source: 'machine' })
 
   const shot: ShotRecord = {
     id: newId(),

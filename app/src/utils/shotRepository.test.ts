@@ -39,6 +39,7 @@ const {
   openDraft,
   discardDraft,
   bindExtraction,
+  completeWithoutCurve,
 } = await import('./shotRepository')
 
 function legacyRecord(id: string, date: string, notes?: string): ExtractionRecord {
@@ -239,5 +240,21 @@ describe('rascunho', () => {
     expect(shot.log.status).toBe('pending_review')
     expect(shot.source).toBe('machine')
     expect(await getShot(shot.id)).not.toBeNull()
+  })
+
+  it('completeWithoutCurve conclui o rascunho com tempo manual (RF-11)', async () => {
+    const draft = await openDraft({ doseG: 18, grindSetting: '7' })
+    const shot = await completeWithoutCurve(32)
+
+    expect(shot.id).toBe(draft.id)
+    expect(shot.duration_s).toBe(32)
+    expect(shot.source).toBe('manual')
+    expect(shot.log.status).toBe('pending_review')
+    expect(shot.log.doseG).toBe(18)
+    expect(await getDraft()).toBeNull()
+  })
+
+  it('completeWithoutCurve sem rascunho aberto rejeita', async () => {
+    await expect(completeWithoutCurve(30)).rejects.toThrow()
   })
 })

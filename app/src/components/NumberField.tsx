@@ -46,6 +46,13 @@ const NumberField: React.FC<NumberFieldProps> = ({
   }
 
   const normalize = () => {
+    // Campo vazio ao perder foco (limpou pra redigitar e saiu antes de
+    // terminar): volta pro valor atual em vez de forcar 0 e persistir a
+    // perda do que ja estava digitado.
+    if (buf === '') {
+      setBuf(Number.isFinite(value) ? String(value) : '')
+      return
+    }
     let n = parseFloat(buf)
     if (!Number.isFinite(n)) n = min ?? 0
     if (min != null && n < min) n = min

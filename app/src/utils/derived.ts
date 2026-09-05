@@ -1,5 +1,10 @@
 import { ShotLog, ShotRecord } from '../api/types'
 
+/** Arredonda pra 1 casa decimal (amostragem de curva, moagem numerica). */
+export function round1(n: number): number {
+  return Math.round(n * 10) / 10
+}
+
 /** Ratio (yield/dose). Nunca persistido (D9) — calculado na renderizacao. */
 export function ratio(doseG?: number, yieldG?: number): number | null {
   if (!doseG || !yieldG) return null
