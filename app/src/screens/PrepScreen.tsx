@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Screen from '../components/Screen'
 import NumberField from '../components/NumberField'
 import GrindStepper from '../components/GrindStepper'
+import PhotoPicker from '../components/PhotoPicker'
 import { useDraft } from '../hooks/useDraft'
 import { getIndex } from '../utils/shotRepository'
 import { ShotLog } from '../api/types'
@@ -81,13 +82,22 @@ const PrepScreen: React.FC = () => {
       title="Preparo"
       showNav={false}
       action={
-        <button
-          onClick={handleDiscard}
-          disabled={busy}
-          className="text-sm font-medium text-brick active:opacity-70 disabled:opacity-40"
-        >
-          Descartar
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/')}
+            disabled={busy}
+            className="text-sm font-medium text-muted active:opacity-70 disabled:opacity-40"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleDiscard}
+            disabled={busy}
+            className="text-sm font-medium text-brick active:opacity-70 disabled:opacity-40"
+          >
+            Descartar
+          </button>
+        </div>
       }
     >
       {error && (
@@ -97,6 +107,19 @@ const PrepScreen: React.FC = () => {
       )}
 
       <div className="space-y-5">
+        <div>
+          <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted">
+            Nome (opcional)
+          </label>
+          <input
+            type="text"
+            value={log.label ?? ''}
+            onChange={(e) => update({ label: e.target.value || undefined })}
+            placeholder="Ex: bourbon lavado dia 2"
+            className="w-full rounded-xl border border-line bg-cream px-3 py-2.5 text-sm text-ink placeholder:text-muted outline-none focus:border-mocha"
+          />
+        </div>
+
         <div>
           <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted">
             Moagem
@@ -144,6 +167,17 @@ const PrepScreen: React.FC = () => {
               </button>
             ))}
           </div>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted">
+            Fotos
+          </label>
+          <PhotoPicker
+            shotId={draft.id}
+            photos={log.photos ?? []}
+            onChange={(photos) => update({ photos })}
+          />
         </div>
       </div>
 

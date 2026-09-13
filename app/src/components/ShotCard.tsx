@@ -60,7 +60,7 @@ const ShotCard: React.FC<{ entry: ShotIndexEntry }> = ({ entry }) => {
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
           <span className="truncate text-sm font-semibold text-ink">
-            {entry.grindSetting ? `Moagem ${entry.grindSetting}` : entry.profileName || 'Shot'}
+            {entry.label || (entry.grindSetting ? `Moagem ${entry.grindSetting}` : entry.profileName || 'Shot')}
           </span>
           <span
             className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${STATUS_STYLE[entry.status]}`}

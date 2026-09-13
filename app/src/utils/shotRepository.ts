@@ -45,6 +45,7 @@ function toIndexEntry(shot: ShotRecord): ShotIndexEntry {
     profileName: shot.profileName,
     duration_s: shot.duration_s,
     beanId: shot.log.beanId,
+    label: shot.log.label,
     grindSetting: shot.log.grindSetting,
     doseG: shot.log.doseG,
     yieldG: shot.log.yieldG,
