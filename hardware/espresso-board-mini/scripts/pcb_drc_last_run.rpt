@@ -1,0 +1,337 @@
+** Drc report for espresso-board-mini.kicad_pcb **
+** Created on 2026-09-14T10:10:10 **
+** Report includes: Errors, Warnings, Exclusions **
+
+** Found 77 DRC violations **
+[pth_inside_courtyard]: PTH inside courtyard
+    Local override; error
+    @(34.5000 mm, 27.2400 mm): Ilha PTH 1 [LED_ACT_GPIO20] de JB3
+    @(16.1100 mm, 12.0000 mm): Footprint U1
+[pth_inside_courtyard]: PTH inside courtyard
+    Local override; error
+    @(15.3000 mm, 29.7800 mm): Ilha PTH 2 [PUMP_GPIO0] de JB2
+    @(16.1100 mm, 12.0000 mm): Footprint U1
+[pth_inside_courtyard]: PTH inside courtyard
+    Local override; error
+    @(8.0000 mm, 24.5000 mm): Ilha PTH 1 [GND] de JB12
+    @(6.0000 mm, 20.0000 mm): Footprint <sem designador de referência>
+[pth_inside_courtyard]: PTH inside courtyard
+    Local override; error
+    @(13.0000 mm, 24.5000 mm): Ilha PTH 2 [GND] de JB12
+    @(6.0000 mm, 20.0000 mm): Footprint <sem designador de referência>
+[pth_inside_courtyard]: PTH inside courtyard
+    Local override; error
+    @(8.0000 mm, 22.1600 mm): Ilha PTH 1 [BTN_GPIO3] de JB1
+    @(6.0000 mm, 20.0000 mm): Footprint <sem designador de referência>
+[pth_inside_courtyard]: PTH inside courtyard
+    Local override; error
+    @(13.0000 mm, 22.1600 mm): Ilha PTH 2 [BTN_GPIO3] de JB1
+    @(6.0000 mm, 20.0000 mm): Footprint <sem designador de referência>
+[pth_inside_courtyard]: PTH inside courtyard
+    Local override; error
+    @(8.0000 mm, 20.0000 mm): Ilha PTH 1 [BTN_GPIO3] de JB11
+    @(6.0000 mm, 20.0000 mm): Footprint <sem designador de referência>
+[pth_inside_courtyard]: PTH inside courtyard
+    Local override; error
+    @(13.0000 mm, 20.0000 mm): Ilha PTH 2 [BTN_GPIO3] de JB11
+    @(6.0000 mm, 20.0000 mm): Footprint <sem designador de referência>
+[track_dangling]: Track has unconnected end
+    Local override; warning
+    @(5.0000 mm, 55.0000 mm): Trilha [GND] no B.Cu, comprimento 45.0000 mm
+[track_dangling]: Track has unconnected end
+    Local override; warning
+    @(47.0000 mm, 55.0000 mm): Trilha [GND] no B.Cu, comprimento 37.0000 mm
+[hole_to_hole]: Furo feito muito próximo de outro furo (configuração das restrições da placa mín 0.2500 mm; atual 0.0000 mm)
+    Rule: configuração das restrições da placa; warning
+    @(16.1100 mm, 29.7800 mm): Ilha PTH 8 [PUMP_GPIO0] de U1
+    @(15.3000 mm, 29.7800 mm): Ilha PTH 2 [PUMP_GPIO0] de JB2
+[hole_to_hole]: Furo feito muito próximo de outro furo (configuração das restrições da placa mín 0.2500 mm; atual 0.0000 mm)
+    Rule: configuração das restrições da placa; warning
+    @(34.5000 mm, 27.2400 mm): Ilha PTH 1 [LED_ACT_GPIO20] de JB3
+    @(33.8900 mm, 27.2400 mm): Ilha PTH 15 [LED_ACT_GPIO20] de U1
+[hole_to_hole]: Furo feito muito próximo de outro furo (configuração das restrições da placa mín 0.2500 mm; atual 0.0000 mm)
+    Rule: configuração das restrições da placa; warning
+    @(13.0000 mm, 20.0000 mm): Ilha PTH 2 [BTN_GPIO3] de JB11
+    @(12.5000 mm, 20.0000 mm): Ilha PTH 1 [BTN_GPIO3] de 
+[hole_to_hole]: Furo feito muito próximo de outro furo (configuração das restrições da placa mín 0.2500 mm; atual 0.0000 mm)
+    Rule: configuração das restrições da placa; warning
+    @(12.5000 mm, 24.5000 mm): Ilha PTH 2 [GND] de 
+    @(13.0000 mm, 24.5000 mm): Ilha PTH 2 [GND] de JB12
+[lib_footprint_issues]: A configuração atual não inclui a biblioteca de footprints 'ESP32C3_SuperMini'
+    Local override; warning
+    @(16.1100 mm, 12.0000 mm): Footprint U1
+[lib_footprint_mismatch]: O footprint 'SW_PUSH_6mm' não corresponde à cópia na biblioteca 'Button_Switch_THT'
+    Local override; warning
+    @(6.0000 mm, 20.0000 mm): Footprint <sem designador de referência>
+[lib_footprint_mismatch]: O footprint 'PinHeader_1x02_P2.54mm_Vertical' não corresponde à cópia na biblioteca 'Connector_PinHeader_2.54mm'
+    Local override; warning
+    @(8.5000 mm, 40.0000 mm): Footprint <sem designador de referência>
+[lib_footprint_mismatch]: O footprint 'PinHeader_1x02_P2.54mm_Vertical' não corresponde à cópia na biblioteca 'Connector_PinHeader_2.54mm'
+    Local override; warning
+    @(20.0000 mm, 48.0000 mm): Footprint <sem designador de referência>
+[lib_footprint_issues]: A configuração atual não inclui a biblioteca de footprints 'WirePads'
+    Local override; warning
+    @(40.0000 mm, 12.0000 mm): Footprint J5_SCK
+[lib_footprint_issues]: A configuração atual não inclui a biblioteca de footprints 'WirePads'
+    Local override; warning
+    @(40.0000 mm, 14.5400 mm): Footprint J5_SO
+[lib_footprint_issues]: A configuração atual não inclui a biblioteca de footprints 'WirePads'
+    Local override; warning
+    @(40.0000 mm, 17.0800 mm): Footprint J5_CS
+[lib_footprint_issues]: A configuração atual não inclui a biblioteca de footprints 'WirePads'
+    Local override; warning
+    @(40.0000 mm, 19.6200 mm): Footprint J6_SDA
+[lib_footprint_issues]: A configuração atual não inclui a biblioteca de footprints 'WirePads'
+    Local override; warning
+    @(40.0000 mm, 22.1600 mm): Footprint J6_SCL
+[lib_footprint_issues]: A configuração atual não inclui a biblioteca de footprints 'WirePads'
+    Local override; warning
+    @(24.0000 mm, 38.0000 mm): Footprint J5_GND
+[lib_footprint_issues]: A configuração atual não inclui a biblioteca de footprints 'WirePads'
+    Local override; warning
+    @(24.0000 mm, 44.0000 mm): Footprint J6_GND
+[lib_footprint_issues]: A configuração atual não inclui a biblioteca de footprints 'WirePads'
+    Local override; warning
+    @(28.0000 mm, 38.0000 mm): Footprint J5_3V3
+[lib_footprint_issues]: A configuração atual não inclui a biblioteca de footprints 'WirePads'
+    Local override; warning
+    @(28.0000 mm, 44.0000 mm): Footprint J6_3V3
+[lib_footprint_mismatch]: O footprint 'R_Axial_DIN0204_L3.6mm_D1.6mm_P2.54mm_Vertical' não corresponde à cópia na biblioteca 'Resistor_THT'
+    Local override; warning
+    @(15.0000 mm, 62.0000 mm): Footprint <sem designador de referência>
+[lib_footprint_mismatch]: O footprint 'TO-220-3_Vertical' não corresponde à cópia na biblioteca 'Package_TO_SOT_THT'
+    Local override; warning
+    @(12.0000 mm, 72.0000 mm): Footprint <sem designador de referência>
+[lib_footprint_mismatch]: O footprint 'R_Axial_DIN0204_L3.6mm_D1.6mm_P2.54mm_Vertical' não corresponde à cópia na biblioteca 'Resistor_THT'
+    Local override; warning
+    @(12.0000 mm, 87.0000 mm): Footprint <sem designador de referência>
+[lib_footprint_mismatch]: O footprint 'PinHeader_1x02_P2.54mm_Vertical' não corresponde à cópia na biblioteca 'Connector_PinHeader_2.54mm'
+    Local override; warning
+    @(9.0000 mm, 95.0000 mm): Footprint <sem designador de referência>
+[lib_footprint_mismatch]: O footprint 'R_Axial_DIN0204_L3.6mm_D1.6mm_P2.54mm_Vertical' não corresponde à cópia na biblioteca 'Resistor_THT'
+    Local override; warning
+    @(41.0000 mm, 62.0000 mm): Footprint <sem designador de referência>
+[lib_footprint_mismatch]: O footprint 'TO-92_Inline' não corresponde à cópia na biblioteca 'Package_TO_SOT_THT'
+    Local override; warning
+    @(38.0000 mm, 70.0000 mm): Footprint <sem designador de referência>
+[lib_footprint_mismatch]: O footprint 'PinHeader_1x02_P2.54mm_Vertical' não corresponde à cópia na biblioteca 'Connector_PinHeader_2.54mm'
+    Local override; warning
+    @(41.0000 mm, 86.0000 mm): Footprint <sem designador de referência>
+[lib_footprint_issues]: Footprint 'SolderBridge_2Pad' não encontrado na biblioteca 'Jumper'
+    Local override; warning
+    @(8.0000 mm, 22.1600 mm): Footprint JB1
+[lib_footprint_issues]: Footprint 'SolderBridge_2Pad' não encontrado na biblioteca 'Jumper'
+    Local override; warning
+    @(8.3000 mm, 29.7800 mm): Footprint JB2
+[lib_footprint_issues]: Footprint 'SolderBridge_2Pad' não encontrado na biblioteca 'Jumper'
+    Local override; warning
+    @(34.5000 mm, 27.2400 mm): Footprint JB3
+[lib_footprint_issues]: Footprint 'SolderBridge_2Pad' não encontrado na biblioteca 'Jumper'
+    Local override; warning
+    @(37.0000 mm, 52.5000 mm): Footprint JBspine1
+[lib_footprint_issues]: Footprint 'SolderBridge_2Pad' não encontrado na biblioteca 'Jumper'
+    Local override; warning
+    @(44.0000 mm, 52.5000 mm): Footprint JBspine2
+[lib_footprint_issues]: Footprint 'SolderBridge_2Pad' não encontrado na biblioteca 'Jumper'
+    Local override; warning
+    @(17.7000 mm, 52.7000 mm): Footprint JBv
+[lib_footprint_issues]: Footprint 'SolderBridge_2Pad' não encontrado na biblioteca 'Jumper'
+    Local override; warning
+    @(8.0000 mm, 20.0000 mm): Footprint JB11
+[lib_footprint_issues]: Footprint 'SolderBridge_2Pad' não encontrado na biblioteca 'Jumper'
+    Local override; warning
+    @(8.0000 mm, 24.5000 mm): Footprint JB12
+[lib_footprint_issues]: Footprint 'SolderBridge_2Pad' não encontrado na biblioteca 'Jumper'
+    Local override; warning
+    @(6.5000 mm, 84.0000 mm): Footprint JBg1
+[lib_footprint_issues]: Footprint 'SolderBridge_2Pad' não encontrado na biblioteca 'Jumper'
+    Local override; warning
+    @(6.5000 mm, 91.0000 mm): Footprint JBg2
+[lib_footprint_issues]: Footprint 'SolderBridge_2Pad' não encontrado na biblioteca 'Jumper'
+    Local override; warning
+    @(12.0000 mm, 74.5000 mm): Footprint JBg3
+[silk_overlap]: Silkscreen clearance
+    Rule: configuração da serigrafia da placa; warning
+    @(40.0000 mm, 11.0400 mm): Campo de referência do J5_SO
+    @(38.5000 mm, 10.5000 mm): Segmento de J5_SCK em F.Silkscreen
+[silk_overlap]: Silkscreen clearance
+    Rule: configuração da serigrafia da placa; warning
+    @(38.5000 mm, 13.0400 mm): Segmento de J5_SO em F.Silkscreen
+    @(40.0000 mm, 13.5800 mm): Campo de referência do J5_CS
+[silk_overlap]: Silkscreen clearance
+    Rule: configuração da serigrafia da placa; warning
+    @(38.5000 mm, 13.5000 mm): Segmento de J5_SCK em F.Silkscreen
+    @(40.0000 mm, 13.5800 mm): Campo de referência do J5_CS
+[silk_overlap]: Silkscreen clearance
+    Rule: configuração da serigrafia da placa; warning
+    @(40.0000 mm, 16.1200 mm): Campo de referência do J6_SDA
+    @(38.5000 mm, 16.0400 mm): Segmento de J5_SO em F.Silkscreen
+[silk_overlap]: Silkscreen clearance
+    Rule: configuração da serigrafia da placa; warning
+    @(38.5000 mm, 15.5800 mm): Segmento de J5_CS em F.Silkscreen
+    @(40.0000 mm, 16.1200 mm): Campo de referência do J6_SDA
+[silk_overlap]: Silkscreen clearance
+    Rule: configuração da serigrafia da placa; warning
+    @(38.5000 mm, 18.1200 mm): Segmento de J6_SDA em F.Silkscreen
+    @(40.0000 mm, 18.6600 mm): Campo de referência do J6_SCL
+[silk_overlap]: Silkscreen clearance
+    Rule: configuração da serigrafia da placa; warning
+    @(40.0000 mm, 18.6600 mm): Campo de referência do J6_SCL
+    @(38.5000 mm, 18.5800 mm): Segmento de J5_CS em F.Silkscreen
+[silk_overlap]: Silkscreen clearance
+    Rule: configuração da serigrafia da placa; warning
+    @(24.0000 mm, 34.5000 mm): Campo de referência do J5_GND
+    @(28.0000 mm, 34.5000 mm): Campo de referência do J5_3V3
+[silk_overlap]: Silkscreen clearance
+    Rule: configuração da serigrafia da placa; warning
+    @(28.0000 mm, 40.5000 mm): Campo de referência do J6_3V3
+    @(24.0000 mm, 40.5000 mm): Campo de referência do J6_GND
+[silk_overlap]: Silkscreen clearance
+    Rule: configuração da serigrafia da placa; warning
+    @(22.0000 mm, 50.5000 mm): Campo de referência do JBv
+    @(21.3800 mm, 49.2700 mm): Segmento de  em F.Silkscreen
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(15.2100 mm, 11.1000 mm): Círculo de U1 em F.Silkscreen
+    @(16.1100 mm, 12.0000 mm): Ilha PTH 1 [<no net>] de U1
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(35.1600 mm, 9.5000 mm): Segmento de U1 em F.Silkscreen
+    @(34.5000 mm, 27.2400 mm): Ilha PTH 1 [LED_ACT_GPIO20] de JB3
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(14.8400 mm, 32.2800 mm): Segmento de U1 em F.Silkscreen
+    @(15.3000 mm, 29.7800 mm): Ilha PTH 2 [PUMP_GPIO0] de JB2
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(40.0000 mm, 11.0400 mm): Campo de referência do J5_SO
+    @(40.0000 mm, 12.0000 mm): Ilha PTH 1 [THERMO_SCK] de J5_SCK
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(38.5000 mm, 13.0400 mm): Segmento de J5_SO em F.Silkscreen
+    @(40.0000 mm, 12.0000 mm): Ilha PTH 1 [THERMO_SCK] de J5_SCK
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(40.0000 mm, 13.5800 mm): Campo de referência do J5_CS
+    @(40.0000 mm, 12.0000 mm): Ilha PTH 1 [THERMO_SCK] de J5_SCK
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(40.0000 mm, 13.5800 mm): Campo de referência do J5_CS
+    @(40.0000 mm, 14.5400 mm): Ilha PTH 1 [THERMO_SO] de J5_SO
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(40.0000 mm, 16.1200 mm): Campo de referência do J6_SDA
+    @(40.0000 mm, 17.0800 mm): Ilha PTH 1 [THERMO_CS] de J5_CS
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(38.5000 mm, 13.5000 mm): Segmento de J5_SCK em F.Silkscreen
+    @(40.0000 mm, 14.5400 mm): Ilha PTH 1 [THERMO_SO] de J5_SO
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(38.5000 mm, 15.5800 mm): Segmento de J5_CS em F.Silkscreen
+    @(40.0000 mm, 14.5400 mm): Ilha PTH 1 [THERMO_SO] de J5_SO
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(40.0000 mm, 16.1200 mm): Campo de referência do J6_SDA
+    @(40.0000 mm, 14.5400 mm): Ilha PTH 1 [THERMO_SO] de J5_SO
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(38.5000 mm, 16.0400 mm): Segmento de J5_SO em F.Silkscreen
+    @(40.0000 mm, 17.0800 mm): Ilha PTH 1 [THERMO_CS] de J5_CS
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(38.5000 mm, 18.1200 mm): Segmento de J6_SDA em F.Silkscreen
+    @(40.0000 mm, 17.0800 mm): Ilha PTH 1 [THERMO_CS] de J5_CS
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(40.0000 mm, 18.6600 mm): Campo de referência do J6_SCL
+    @(40.0000 mm, 19.6200 mm): Ilha PTH 1 [OLED_SDA] de J6_SDA
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(38.5000 mm, 18.5800 mm): Segmento de J5_CS em F.Silkscreen
+    @(40.0000 mm, 19.6200 mm): Ilha PTH 1 [OLED_SDA] de J6_SDA
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(40.0000 mm, 18.6600 mm): Campo de referência do J6_SCL
+    @(40.0000 mm, 17.0800 mm): Ilha PTH 1 [THERMO_CS] de J5_CS
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(38.5000 mm, 21.1200 mm): Segmento de J6_SDA em F.Silkscreen
+    @(40.0000 mm, 22.1600 mm): Ilha PTH 1 [OLED_SCL] de J6_SCL
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(38.5000 mm, 20.6600 mm): Segmento de J6_SCL em F.Silkscreen
+    @(40.0000 mm, 19.6200 mm): Ilha PTH 1 [OLED_SDA] de J6_SDA
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(12.7500 mm, 23.0000 mm): Segmento de  em F.Silkscreen
+    @(13.0000 mm, 22.1600 mm): Ilha PTH 2 [BTN_GPIO3] de JB1
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(44.0000 mm, 52.8000 mm): Campo de referência do JBspine2
+    @(44.0000 mm, 52.5000 mm): Ilha PTH 1 [LED_ACT_GPIO20] de JBspine2
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(37.0000 mm, 52.8000 mm): Campo de referência do JBspine1
+    @(37.0000 mm, 52.5000 mm): Ilha PTH 1 [SSR_ACT_GPIO10] de JBspine1
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; warning
+    @(12.0000 mm, 74.8000 mm): Campo de referência do JBg3
+    @(12.0000 mm, 74.5000 mm): Ilha PTH 1 [Q2_BASE] de JBg3
+
+** Found 11 unconnected pads **
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(6.5000 mm, 91.0000 mm): Ilha PTH 1 [GND] de JBg2
+    @(11.5000 mm, 91.0000 mm): Ilha PTH 2 [GND] de JBg2
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(12.5000 mm, 24.5000 mm): Ilha PTH 2 [GND] de 
+    @(6.0000 mm, 24.5000 mm): Trilha [GND] no B.Cu, comprimento 2.0000 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(14.5000 mm, 84.0000 mm): Ilha PTH 2 [GND] de JBg1
+    @(14.5400 mm, 87.0000 mm): Trilha [GND] no B.Cu, comprimento 4.0000 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(10.5000 mm, 52.7000 mm): Trilha [+3V3] no B.Cu, comprimento 7.2000 mm
+    @(26.3000 mm, 52.7000 mm): Ilha PTH 2 [+3V3] de JBv
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(12.5000 mm, 20.0000 mm): Ilha PTH 1 [BTN_GPIO3] de 
+    @(8.0000 mm, 20.0000 mm): Ilha PTH 1 [BTN_GPIO3] de JB11
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(13.0000 mm, 20.0000 mm): Ilha PTH 2 [BTN_GPIO3] de JB11
+    @(16.1100 mm, 22.1600 mm): Trilha [BTN_GPIO3] no B.Cu, comprimento 3.1100 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(15.3000 mm, 29.7800 mm): Ilha PTH 2 [PUMP_GPIO0] de JB2
+    @(8.3000 mm, 29.7800 mm): Trilha [PUMP_GPIO0] no B.Cu, comprimento 0.2000 mm
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(37.0000 mm, 57.5000 mm): Ilha PTH 2 [SSR_ACT_GPIO10] de JBspine1
+    @(37.0000 mm, 52.5000 mm): Ilha PTH 1 [SSR_ACT_GPIO10] de JBspine1
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(39.5000 mm, 27.2400 mm): Trilha [LED_ACT_GPIO20] no B.Cu, comprimento 4.5000 mm
+    @(34.5000 mm, 27.2400 mm): Ilha PTH 1 [LED_ACT_GPIO20] de JB3
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(44.0000 mm, 57.5000 mm): Ilha PTH 2 [LED_ACT_GPIO20] de JBspine2
+    @(44.0000 mm, 52.5000 mm): Ilha PTH 1 [LED_ACT_GPIO20] de JBspine2
+[unconnected_items]: Missing connection between items
+    Local override; error
+    @(12.0000 mm, 74.5000 mm): Ilha PTH 1 [Q2_BASE] de JBg3
+    @(12.0000 mm, 79.5000 mm): Ilha PTH 2 [Q2_BASE] de JBg3
+
+** Found 0 Footprint errors **
+
+** Ignored checks **
+    - Footprint has no courtyard defined
+    - Track endpoint not centered on via
+    - Tuning profile track geometries
+    - Footprint doesn't match symbol's footprint filters
+    - Footprint component type doesn't match footprint pads
+
+** End of Report **

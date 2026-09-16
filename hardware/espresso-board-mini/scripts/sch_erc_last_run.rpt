@@ -1,0 +1,18 @@
+ERC report (2026-09-13T22:01:49, Encoding UTF8)
+Report includes: Errors, Warnings
+
+***** Sheet /
+[footprint_link_issues]: A configuração atual não inclui a biblioteca de footprints 'ESP32C3_SuperMini'
+    ; warning
+    @(120.65 mm, 78.74 mm): Símbolo U1 [ESP32C3_SuperMini]
+[lib_symbol_issues]: A configuração atual não inclui os símbolos da biblioteca ''
+    ; warning
+    @(120.65 mm, 78.74 mm): Símbolo U1 [ESP32C3_SuperMini]
+
+ ** ERC messages: 2  Errors 0  Warnings 2
+
+ ** Ignored checks:
+    - Global label only appears once in the schematic
+    - Four connection points are joined together
+    - SPICE model issue
+    - Assigned footprint doesn't match footprint filters
