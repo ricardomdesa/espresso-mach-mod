@@ -2,7 +2,7 @@
   "board": {
     "active_layer": 2,
     "active_layer_preset": "",
-    "auto_track_width": true,
+    "auto_track_width": false,
     "hidden_netclasses": [],
     "hidden_nets": [],
     "high_contrast_mode": 0,
@@ -31,6 +31,7 @@
     },
     "visible_items": [
       "vias",
+      "grid",
       "footprints_front",
       "tracks",
       "bitmaps",
