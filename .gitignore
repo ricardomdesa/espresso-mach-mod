@@ -3,3 +3,6 @@
 .vscode/
 
 secrets.ini
+
+# KiCad lockfiles
+*.lck
