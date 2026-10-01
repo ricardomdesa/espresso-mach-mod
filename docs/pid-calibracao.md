@@ -123,23 +123,48 @@ bool saturado = (out > 100.0f) || (out < 0.0f);
 if (saturado) integral_ -= g.ki * error * dt;  // desfaz o acúmulo deste tick
 ```
 
-### Fix 3 — feedforward da bomba (aplicado em 2026-10-01)
+### Fix 3 — feedforward da bomba (aplicado em 2026-10-01, revisto no Fix 4)
 
 Sintoma: extração com set 92 °C e Kp 2.5 terminou com a caldeira em ~80 °C (queda de
-~12 °C em 20–30 s). Com erro > 8 °C a integral é zerada pela banda do Fix 2 e só o
-proporcional responde: `2.5 * 12 = 30 %` de duty — a resistência trabalha a um terço
-enquanto entra água fria.
+~12 °C em 20–30 s). Com erro > 8 °C a integral era zerada pela banda do Fix 2 e só o
+proporcional respondia: `2.5 * 12 = 30 %` de duty enquanto entrava água fria.
 
-Correção (`PidController.cpp`, `PUMP_FEEDFORWARD_DUTY` em `controle.h`):
+Primeira versão: bomba ligada **e** temperatura abaixo do alvo → duty 100 %, integral
+congelada. **Não funcionou em bancada:** o termopar mostra a queda 30–60 s atrasado, a
+condição "abaixo do alvo" quase nunca vale durante a extração, e o feedforward não entrou
+(extração de 19 s: 100,2 → 94,2 °C no fim, mas 81,2 °C um minuto depois, com a bomba já
+desligada).
 
-- Bomba ligada **e** temperatura abaixo do alvo → duty = 100 % direto, sem esperar o erro.
-- Integral congelada durante o feedforward (senão acumula na extração e estoura o alvo depois).
-- Acima do alvo com bomba ligada → PID normal (não soma calor em caldeira já quente).
-- Failsafes (sensor parado, > 115 °C) continuam por cima.
+### Fix 4 — feedforward sem esperar o sensor + integral revista (2026-10-01)
+
+Constantes em `include/controle.h`, lógica em `PidController.cpp` (simulador igual).
+
+Feedforward:
+
+- Bomba ligada **e por `PUMP_FEEDFORWARD_TAIL_MS` (15 s) depois** → duty 100 %, integral
+  congelada. Não depende do termopar mostrar a queda.
+- Só não entra se a caldeira estiver mais de `PUMP_FEEDFORWARD_MAX_ABOVE_C` (5 °C) acima do alvo.
 - Só vale para bomba acionada pelo ESP (app/botão/perfil), que é quem seta `pumpOn`.
 
-A validar: queda durante a extração e overshoot depois que a bomba desliga (a resistência
-sai de 100 % com o atraso térmico de sempre).
+Integral:
+
+- **Dentro da banda (±8 °C):** acumula normalmente.
+- **Abaixo da banda:** congelada (antes era zerada) — guarda o duty de regime e ajuda a
+  recuperar depois da extração. Exceção: se a temperatura subir menos de
+  `PID_STALL_MIN_RISE_C` (0,5 °C) em `PID_STALL_WINDOW_MS` (10 s), acumula com o erro
+  limitado à banda. Sem isso, com a integral parada só Kp aquece e a caldeira empaca onde
+  `Kp * erro` = perdas (no simulador com perdas altas, Kp 2.5 parava em 79 °C).
+- **Acima do alvo + `PID_INTEGRAL_RESET_ABOVE_C` (1,5 °C):** ao cruzar, a integral é
+  cortada pela metade e passa a esvaziar `PID_INTEGRAL_UNWIND_GAIN` (5×) mais rápido.
+  Motivo: em bancada, depois de um flush, a integral acumulou ~30 pontos na subida de
+  84 → 92 °C e manteve 18–30 % de duty até 96 °C — pico de 100,8 °C (+8,8). Zerar de vez
+  foi testado no simulador e faz a caldeira oscilar quando o duty de regime é alto.
+  O limiar de 1,5 °C fica acima dos saltos de leitura do MAX6675 (~1 °C).
+
+Simulador (planta sem atraso térmico, não modela a água da bomba): estabiliza em 92,0 °C
+com Kp 2, 2.5 e 5 e duty de regime de 5 %, 14 % e 38 %, pico ≤ 93,4 °C.
+
+A validar em bancada: queda na extração, pico depois da extração e recuperação após flush.
 
 ### Ordem de trabalho
 
@@ -190,4 +215,7 @@ Preencher a cada rodada de bancada.
 | 2026-10-01 | 5 | 0.08 | 3 | sim (banda 8, teto 60) | 28 → 92 °C em 2:58 | **+10,5 °C** (pico 102,5 °C, ~1,5 min após cruzar o alvo) | resfria ~1,2 °C/min sem flush | bancada, partida a frio, set 92. Duty caiu como esperado na aproximação (57 % @82 °C → 0 % @93,8 °C), mas a temperatura seguiu subindo ~1,5 min com duty 0 %: atraso térmico resistência → termopar |
 | 2026-10-01 | 2.5 | 0.08 | 3 | sim (banda 8, teto 60) | 62 → 92 °C em ~3 min | **+6,0 °C** (pico 98,0 °C) | resfria ~0,5–1 °C/min | bancada, recuperação após flush (não é partida a frio — não comparável 1:1). Subida perto do alvo ~11 °C/min vs ~27 °C/min com Kp 5. Kp 2,5 em uso (NVS) |
 | 2026-10-01 | 2.5 | 0.08 | 3 | sim (banda 8, teto 60) | — | extração: 92 → ~80 °C no fim (20–30 s) | — | bancada. PID dá só ~30 % de duty durante a extração (integral zerada pela banda). Motivou o Fix 3 (feedforward da bomba) |
+| 2026-10-01 | 2.5 | 0.08 | 3 | Fix 2 + Fix 3 v1 | 38,5 → 92 °C em 3:18 | **+4,75 °C** (pico 96,75 °C) | — | bancada, partida a frio. Kp 5 a frio tinha dado +10,5 °C |
+| 2026-10-01 | 2.5 | 0.08 | 3 | Fix 2 + Fix 3 v1 | recuperação 84 → 92 °C | **+8,8 °C** (pico 100,8 °C) | — | bancada, após flush. Ficou ~1,5 min presa em 84–86 °C (borda da banda, integral zerada, ~20 % de duty); dentro da banda a integral encheu ~30 e segurou 18–30 % de duty até 96 °C. Motivou o Fix 4 |
+| 2026-10-01 | 2.5 | 0.08 | 3 | Fix 2 + Fix 3 v1 | — | extração 19 s: 100,2 → 94,2 °C no fim, **81,2 °C** 1 min depois | — | bancada. Feedforward não entrou (sensor atrasado, nunca abaixo do alvo com a bomba ligada). Motivou o Fix 4 |
 | | | | | | | | | |

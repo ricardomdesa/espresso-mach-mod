@@ -14,8 +14,12 @@
 // calculada sobre a medição (não sobre o erro), para não dar chute quando o
 // setpoint muda (ex.: início do preheat de um perfil).
 //
-// Feedforward da bomba: com a bomba ligada e a temperatura abaixo do alvo, o
-// duty vai para PUMP_FEEDFORWARD_DUTY e a integral fica congelada.
+// Anti-windup: integral só acumula perto do alvo, congela fora da banda (salvo
+// se a temperatura empacar abaixo dela) e esvazia rápido quando passa do alvo
+// (ver controle.h).
+//
+// Feedforward da bomba: com a bomba ligada (e por PUMP_FEEDFORWARD_TAIL_MS
+// depois), o duty vai para PUMP_FEEDFORWARD_DUTY e a integral fica congelada.
 //
 // Dois failsafes forçam duty 0 %:
 //  - leitura do termopar parada há mais de SENSOR_FAULT_TIMEOUT_MS;
@@ -43,4 +47,9 @@ private:
     float integral_ = 0.0f;
     float lastTemp_ = 0.0f;
     unsigned long lastMs_ = 0;
+    unsigned long lastPumpOnMs_ = 0; // 0 = bomba não ligou desde o reset
+    unsigned long stallRefMs_ = 0;   // início da janela de detecção de "empacou"
+    float stallRefTemp_ = 0.0f;
+    bool stalled_ = false;
+    bool wasAbove_ = false;
 };
