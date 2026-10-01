@@ -20,6 +20,8 @@ const (
 	readyOffMarginC       = 4.0
 	sensorFaultTimeoutMs  = 10000
 	pidIntervalMs         = 200
+	pidIntegralBandC      = 8.0
+	pidIntegralMax        = 60.0
 	preheatToleranceC     = 2.0
 	preheatStableMs       = 3000
 	preheatTimeoutMs      = 180000
@@ -311,12 +313,16 @@ func (m *Machine) pidUpdate(now int64) {
 	sp := m.effTarget()
 	err := sp - temp
 
-	m.integral += m.ki * err * dt
+	if math.Abs(err) < pidIntegralBandC {
+		m.integral += m.ki * err * dt
+	} else {
+		m.integral = 0
+	}
 	if m.integral < 0 {
 		m.integral = 0
 	}
-	if m.integral > 100 {
-		m.integral = 100
+	if m.integral > pidIntegralMax {
+		m.integral = pidIntegralMax
 	}
 
 	dTemp := (temp - m.pidLastTemp) / dt

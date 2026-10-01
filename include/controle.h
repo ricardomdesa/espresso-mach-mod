@@ -16,6 +16,15 @@ constexpr unsigned long SSR_WINDOW_MS = 1000UL;
 // o MAX6675 só converte a ~4 Hz e a caldeira responde em dezenas de segundos.
 constexpr unsigned long PID_INTERVAL_MS = 200UL;
 
+// Anti-windup por integração condicional. Longe do alvo (|erro| >= banda) a
+// integral é zerada e só Kp+Kd levam a caldeira; perto do alvo ela acumula até
+// um teto abaixo de 100 %. Sem isso a integral saturava em 100 durante a subida
+// e mantinha duty > 0 até setpoint + 100/Kp (~+20 °C com Kp 5) — ver
+// docs/pid-calibracao.md. O teto precisa ficar acima do duty de regime
+// (perdas da caldeira no alvo).
+constexpr float PID_INTEGRAL_BAND_C = 8.0f;
+constexpr float PID_INTEGRAL_MAX = 60.0f;
+
 // Failsafe 1: se a última leitura VÁLIDA do termopar for mais antiga que isto
 // (sensor aberto/congelado), o PID força duty 0% — não sustenta o SSR ligado
 // com base num valor que já não reflete a realidade.

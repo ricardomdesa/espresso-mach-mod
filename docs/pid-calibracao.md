@@ -1,7 +1,7 @@
 # Calibração do PID de temperatura
 
 Estudo de referência para o ajuste fino de Kp/Ki/Kd da caldeira.
-Data de partida: 2026-08-28. Status: **em teste de bancada.**
+Data de partida: 2026-08-28. Status: **em teste de bancada** (Fix 2 aplicado em 2026-10-01).
 
 ## 1. Como o laço funciona
 
@@ -14,13 +14,14 @@ Arquivos: `src/control/PidController.cpp`, `include/controle.h`, `src/model/Disp
 - Saída: `duty` 0–100 %. O `HeaterOutput` faz time-proportioning numa janela de
   `SSR_WINDOW_MS` (1 s) e liga/desliga o GPIO do SSR.
 
-Fórmula (`PidController.cpp:47`):
+Fórmula (`PidController.cpp:60`):
 
 ```
 out = Kp*error + integral - Kd*dTemp
 ```
 
-- `integral += Ki*error*dt`, clampada hoje em `0..100` (`PidController.cpp:39-41`).
+- `integral += Ki*error*dt` só quando `|error| < PID_INTEGRAL_BAND_C` (8 °C); fora da banda
+  é zerada. Clampada em `0..PID_INTEGRAL_MAX` (60) (`PidController.cpp:45-54`, `controle.h`).
 - `dTemp = (temp - lastTemp)/dt` — **derivada sobre a medição**, não sobre o erro.
   Subtraída (`- Kd*dTemp`), evita "derivative kick" ao mudar o setpoint.
 - `dt` em segundos, medido tick a tick.
@@ -54,7 +55,7 @@ out = Kp*error + integral - Kd*dTemp
 
 ## 3. Ponto de partida (defaults de fábrica)
 
-`src/model/DisplayModel.h:107` — `PidGains pid_{2.0f, 0.5f, 0.1f}`.
+`src/model/DisplayModel.h:112` — `PidGains pid_{2.0f, 0.5f, 0.1f}`.
 O app exibe exatamente estes valores. **São chute inicial, nunca calibrados.**
 
 ### Diagnóstico dos defaults
@@ -96,6 +97,10 @@ Kp 5 / Ki 0.08 / Kd 3
 Alternativa mais suave para o primeiro teste: `Kp 4 / Ki 0.15 / Kd 2`.
 
 ### Fix 2 — código, se os ganhos não bastarem
+
+> **Aplicado em 2026-10-01** (integração condicional, banda 8 °C, teto 60), no
+> firmware e no simulador. Constantes `PID_INTEGRAL_BAND_C` / `PID_INTEGRAL_MAX`
+> em `include/controle.h`. O anti-windup alternativo abaixo não foi aplicado.
 
 **Integração condicional** (elimina windup na raiz). Em `PidController.cpp:39`,
 só acumula integral perto do alvo:
@@ -144,4 +149,6 @@ Preencher a cada rodada de bancada.
 | Data | Kp | Ki | Kd | Código (fix 2?) | Tempo até 70 °C | Overshoot | Assentamento | Observações |
 |------|----|----|----|-----------------|-----------------|-----------|--------------|-------------|
 | 2026-08-28 | 2 | 0.5 | 0.1 | não (default) | lento | ~+7 °C | ruim (sem resf. ativo) | ponto de partida; windup |
+| 2026-10-01 | 5 | 0.08 | 3 | não | — | ~+22 °C (set 88 → 110 °C após ~10 min ligada) | não assenta, precisa de flush | uso diário. Windup: integral satura em 100 na subida e só deixa o duty zerar em ~setpoint + 100/Kp ≈ 108 °C. Ganhos sozinhos não resolvem → Fix 2 |
+| 2026-10-01 | 5 | 0.08 | 3 | sim (banda 8, teto 60) | — | sim.: 0 °C (antes 96,6 °C) | — | só simulador (planta sem atraso térmico); validar em bancada |
 | | | | | | | | | |

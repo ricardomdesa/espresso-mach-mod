@@ -42,10 +42,16 @@ void PidController::update() {
 
     const float error = sp - temp;
 
-    // Integral com anti-windup: clampada ao próprio range de saída.
-    integral_ += g.ki * error * dt;
+    // Integral com anti-windup por integração condicional: só acumula perto do
+    // alvo; fora da banda é zerada. Teto abaixo de 100 % para a integral não
+    // dominar a saída.
+    if (fabsf(error) < PID_INTEGRAL_BAND_C) {
+        integral_ += g.ki * error * dt;
+    } else {
+        integral_ = 0.0f;
+    }
     if (integral_ < 0.0f) integral_ = 0.0f;
-    if (integral_ > 100.0f) integral_ = 100.0f;
+    if (integral_ > PID_INTEGRAL_MAX) integral_ = PID_INTEGRAL_MAX;
 
     // Derivada sobre a medição (sinal invertido em relação à derivada do erro).
     const float dTemp = (temp - lastTemp_) / dt;
