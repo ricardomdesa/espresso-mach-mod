@@ -142,6 +142,24 @@ Se quiser recomeçar limpo em vez de ajustar por tentativa:
    Versão conservadora (menos overshoot): `Kp = 0.33*Ku`, `Ki = 0.66*Ku/Tu`, `Kd = 0.11*Ku*Tu`.
 4. Ajuste fino pelo teste de degrau, conforme a seção 4.
 
+### Achados de bancada (2026-10-01)
+
+- **Fix 2 resolveu o windup.** Acima do alvo o duty fica em 0 % (antes ficava > 0 até ~108 °C).
+- **O overshoot que sobra é atraso térmico.** Depois do duty zerar, o termopar continua
+  subindo por 1–2 min (até +10 °C com Kp 5). A energia já está na resistência/metal quando
+  o PID enxerga. Ganho sozinho não compensa isso; Kp menor só reduz a energia "em trânsito".
+- **Kd está limitado pelo ruído do MAX6675.** Degraus de 0,25 °C e saltos isolados de ~1 °C,
+  derivados a cada 200 ms, viram pulsos de 2–15 % de duty com Kd 3. Subir Kd sem filtrar a
+  derivada piora isso.
+- **Resfriamento passivo é lento** (~1 °C/min), por isso qualquer overshoot dura minutos.
+
+Próximos passos:
+
+1. Partida a frio com `Kp 2.5 / Ki 0.08 / Kd 3` (o caso de uso diário) e registrar aqui.
+2. Se ainda passar > 3 °C: filtrar a derivada (média móvel / EMA sobre `dTemp`) e então
+   testar Kd alto (30–60) para frear antes do alvo. Paliativo sem código: alvo com offset
+   (ex.: set 90 para ~92–93 real).
+
 ## 6. Log de testes
 
 Preencher a cada rodada de bancada.
@@ -151,4 +169,6 @@ Preencher a cada rodada de bancada.
 | 2026-08-28 | 2 | 0.5 | 0.1 | não (default) | lento | ~+7 °C | ruim (sem resf. ativo) | ponto de partida; windup |
 | 2026-10-01 | 5 | 0.08 | 3 | não | — | ~+22 °C (set 88 → 110 °C após ~10 min ligada) | não assenta, precisa de flush | uso diário. Windup: integral satura em 100 na subida e só deixa o duty zerar em ~setpoint + 100/Kp ≈ 108 °C. Ganhos sozinhos não resolvem → Fix 2 |
 | 2026-10-01 | 5 | 0.08 | 3 | sim (banda 8, teto 60) | — | sim.: 0 °C (antes 96,6 °C) | — | só simulador (planta sem atraso térmico); validar em bancada |
+| 2026-10-01 | 5 | 0.08 | 3 | sim (banda 8, teto 60) | 28 → 92 °C em 2:58 | **+10,5 °C** (pico 102,5 °C, ~1,5 min após cruzar o alvo) | resfria ~1,2 °C/min sem flush | bancada, partida a frio, set 92. Duty caiu como esperado na aproximação (57 % @82 °C → 0 % @93,8 °C), mas a temperatura seguiu subindo ~1,5 min com duty 0 %: atraso térmico resistência → termopar |
+| 2026-10-01 | 2.5 | 0.08 | 3 | sim (banda 8, teto 60) | 62 → 92 °C em ~3 min | **+6,0 °C** (pico 98,0 °C) | resfria ~0,5–1 °C/min | bancada, recuperação após flush (não é partida a frio — não comparável 1:1). Subida perto do alvo ~11 °C/min vs ~27 °C/min com Kp 5. Kp 2,5 em uso (NVS) |
 | | | | | | | | | |
