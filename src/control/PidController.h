@@ -14,6 +14,9 @@
 // calculada sobre a medição (não sobre o erro), para não dar chute quando o
 // setpoint muda (ex.: início do preheat de um perfil).
 //
+// Feedforward da bomba: com a bomba ligada e a temperatura abaixo do alvo, o
+// duty vai para PUMP_FEEDFORWARD_DUTY e a integral fica congelada.
+//
 // Dois failsafes forçam duty 0 %:
 //  - leitura do termopar parada há mais de SENSOR_FAULT_TIMEOUT_MS;
 //  - temperatura acima de TEMP_MAX_SAFETY_C.

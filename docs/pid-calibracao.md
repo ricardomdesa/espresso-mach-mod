@@ -123,6 +123,24 @@ bool saturado = (out > 100.0f) || (out < 0.0f);
 if (saturado) integral_ -= g.ki * error * dt;  // desfaz o acúmulo deste tick
 ```
 
+### Fix 3 — feedforward da bomba (aplicado em 2026-10-01)
+
+Sintoma: extração com set 92 °C e Kp 2.5 terminou com a caldeira em ~80 °C (queda de
+~12 °C em 20–30 s). Com erro > 8 °C a integral é zerada pela banda do Fix 2 e só o
+proporcional responde: `2.5 * 12 = 30 %` de duty — a resistência trabalha a um terço
+enquanto entra água fria.
+
+Correção (`PidController.cpp`, `PUMP_FEEDFORWARD_DUTY` em `controle.h`):
+
+- Bomba ligada **e** temperatura abaixo do alvo → duty = 100 % direto, sem esperar o erro.
+- Integral congelada durante o feedforward (senão acumula na extração e estoura o alvo depois).
+- Acima do alvo com bomba ligada → PID normal (não soma calor em caldeira já quente).
+- Failsafes (sensor parado, > 115 °C) continuam por cima.
+- Só vale para bomba acionada pelo ESP (app/botão/perfil), que é quem seta `pumpOn`.
+
+A validar: queda durante a extração e overshoot depois que a bomba desliga (a resistência
+sai de 100 % com o atraso térmico de sempre).
+
 ### Ordem de trabalho
 
 1. Só ganhos `5 / 0.08 / 3`. Teste de degrau (ex.: 20 °C → 70 °C).
@@ -171,4 +189,5 @@ Preencher a cada rodada de bancada.
 | 2026-10-01 | 5 | 0.08 | 3 | sim (banda 8, teto 60) | — | sim.: 0 °C (antes 96,6 °C) | — | só simulador (planta sem atraso térmico); validar em bancada |
 | 2026-10-01 | 5 | 0.08 | 3 | sim (banda 8, teto 60) | 28 → 92 °C em 2:58 | **+10,5 °C** (pico 102,5 °C, ~1,5 min após cruzar o alvo) | resfria ~1,2 °C/min sem flush | bancada, partida a frio, set 92. Duty caiu como esperado na aproximação (57 % @82 °C → 0 % @93,8 °C), mas a temperatura seguiu subindo ~1,5 min com duty 0 %: atraso térmico resistência → termopar |
 | 2026-10-01 | 2.5 | 0.08 | 3 | sim (banda 8, teto 60) | 62 → 92 °C em ~3 min | **+6,0 °C** (pico 98,0 °C) | resfria ~0,5–1 °C/min | bancada, recuperação após flush (não é partida a frio — não comparável 1:1). Subida perto do alvo ~11 °C/min vs ~27 °C/min com Kp 5. Kp 2,5 em uso (NVS) |
+| 2026-10-01 | 2.5 | 0.08 | 3 | sim (banda 8, teto 60) | — | extração: 92 → ~80 °C no fim (20–30 s) | — | bancada. PID dá só ~30 % de duty durante a extração (integral zerada pela banda). Motivou o Fix 3 (feedforward da bomba) |
 | | | | | | | | | |

@@ -42,13 +42,20 @@ void PidController::update() {
 
     const float error = sp - temp;
 
+    // Feedforward da bomba: água fria entrando, aquece já em vez de esperar o
+    // erro crescer. Só abaixo do alvo, para não somar calor numa caldeira que
+    // já passou do ponto.
+    const bool feedforward = model_.pumpOn() && error > 0.0f;
+
     // Integral com anti-windup por integração condicional: só acumula perto do
     // alvo; fora da banda é zerada. Teto abaixo de 100 % para a integral não
-    // dominar a saída.
-    if (fabsf(error) < PID_INTEGRAL_BAND_C) {
-        integral_ += g.ki * error * dt;
-    } else {
-        integral_ = 0.0f;
+    // dominar a saída. Congelada durante o feedforward.
+    if (!feedforward) {
+        if (fabsf(error) < PID_INTEGRAL_BAND_C) {
+            integral_ += g.ki * error * dt;
+        } else {
+            integral_ = 0.0f;
+        }
     }
     if (integral_ < 0.0f) integral_ = 0.0f;
     if (integral_ > PID_INTEGRAL_MAX) integral_ = PID_INTEGRAL_MAX;
@@ -60,5 +67,6 @@ void PidController::update() {
     float out = g.kp * error + integral_ - g.kd * dTemp;
     if (out < 0.0f) out = 0.0f;
     if (out > 100.0f) out = 100.0f;
+    if (feedforward && out < PUMP_FEEDFORWARD_DUTY) out = PUMP_FEEDFORWARD_DUTY;
     duty_ = out;
 }

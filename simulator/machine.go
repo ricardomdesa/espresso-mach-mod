@@ -22,6 +22,7 @@ const (
 	pidIntervalMs         = 200
 	pidIntegralBandC      = 8.0
 	pidIntegralMax        = 60.0
+	pumpFeedforwardDuty   = 100.0
 	preheatToleranceC     = 2.0
 	preheatStableMs       = 3000
 	preheatTimeoutMs      = 180000
@@ -313,10 +314,14 @@ func (m *Machine) pidUpdate(now int64) {
 	sp := m.effTarget()
 	err := sp - temp
 
-	if math.Abs(err) < pidIntegralBandC {
-		m.integral += m.ki * err * dt
-	} else {
-		m.integral = 0
+	feedforward := m.pump && err > 0
+
+	if !feedforward {
+		if math.Abs(err) < pidIntegralBandC {
+			m.integral += m.ki * err * dt
+		} else {
+			m.integral = 0
+		}
 	}
 	if m.integral < 0 {
 		m.integral = 0
@@ -334,6 +339,9 @@ func (m *Machine) pidUpdate(now int64) {
 	}
 	if out > 100 {
 		out = 100
+	}
+	if feedforward && out < pumpFeedforwardDuty {
+		out = pumpFeedforwardDuty
 	}
 	m.duty = out
 }

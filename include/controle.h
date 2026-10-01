@@ -25,6 +25,14 @@ constexpr unsigned long PID_INTERVAL_MS = 200UL;
 constexpr float PID_INTEGRAL_BAND_C = 8.0f;
 constexpr float PID_INTEGRAL_MAX = 60.0f;
 
+// Feedforward da bomba. Com a bomba ligada (extração/flush) entra água fria na
+// caldeira mais rápido do que o PID reage: em bancada a temperatura caiu de
+// 92 °C para 80 °C numa extração com o PID dando ~30 % de duty. Enquanto a bomba
+// está ligada e a temperatura está abaixo do alvo, o duty vai direto para este
+// valor e a integral fica congelada (senão acumula durante a extração e estoura
+// o alvo depois). Os failsafes continuam valendo.
+constexpr float PUMP_FEEDFORWARD_DUTY = 100.0f;
+
 // Failsafe 1: se a última leitura VÁLIDA do termopar for mais antiga que isto
 // (sensor aberto/congelado), o PID força duty 0% — não sustenta o SSR ligado
 // com base num valor que já não reflete a realidade.
