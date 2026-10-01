@@ -164,7 +164,10 @@ Integral:
 Simulador (planta sem atraso térmico, não modela a água da bomba): estabiliza em 92,0 °C
 com Kp 2, 2.5 e 5 e duty de regime de 5 %, 14 % e 38 %, pico ≤ 93,4 °C.
 
-A validar em bancada: queda na extração, pico depois da extração e recuperação após flush.
+Resultado em bancada (2026-10-01): extração de 25 s ficou entre 90 e 97,75 °C (antes
+81–100 °C). Pendente: repetir partindo de 92 °C (este teste partiu de 96,5 °C) antes de mexer
+na cauda; se o pico pós-extração seguir em +5 °C, reduzir `PUMP_FEEDFORWARD_TAIL_MS` para
+~8–10 s (baixa o pico, aprofunda um pouco o mínimo).
 
 ### Ordem de trabalho
 
@@ -218,4 +221,6 @@ Preencher a cada rodada de bancada.
 | 2026-10-01 | 2.5 | 0.08 | 3 | Fix 2 + Fix 3 v1 | 38,5 → 92 °C em 3:18 | **+4,75 °C** (pico 96,75 °C) | — | bancada, partida a frio. Kp 5 a frio tinha dado +10,5 °C |
 | 2026-10-01 | 2.5 | 0.08 | 3 | Fix 2 + Fix 3 v1 | recuperação 84 → 92 °C | **+8,8 °C** (pico 100,8 °C) | — | bancada, após flush. Ficou ~1,5 min presa em 84–86 °C (borda da banda, integral zerada, ~20 % de duty); dentro da banda a integral encheu ~30 e segurou 18–30 % de duty até 96 °C. Motivou o Fix 4 |
 | 2026-10-01 | 2.5 | 0.08 | 3 | Fix 2 + Fix 3 v1 | — | extração 19 s: 100,2 → 94,2 °C no fim, **81,2 °C** 1 min depois | — | bancada. Feedforward não entrou (sensor atrasado, nunca abaixo do alvo com a bomba ligada). Motivou o Fix 4 |
+| 2026-10-01 | 2.5 | 0.08 | 3 | Fix 4 | 55 → 92 °C em ~1:40 | **+6,0 °C** (pico ~98 °C) | — | bancada, aquecimento partindo de 55 °C (~24 °C/min, mais rápido que a frio). Integral cortada ao passar de 93,5 °C (duty 19 % → 6 %); o resto é atraso térmico |
+| 2026-10-01 | 2.5 | 0.08 | 3 | Fix 4 | — | extração 25 s: 96,5 → 91,5 °C no fim, duty 100 % o tempo todo. Depois: sobe a **97,75 °C** (+5,75) e desce a **90,0 °C** (−2,0) | volta a 92 °C ~4 min após a extração | bancada. Feedforward entrou junto com a bomba. Faixa pós-extração 90–97,75 °C vs 81–100 °C antes. O pico vem do descompasso: o calor do feedforward chega ao termopar antes da água fria |
 | | | | | | | | | |
