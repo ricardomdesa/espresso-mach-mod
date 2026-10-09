@@ -54,9 +54,24 @@ final class MachineStore {
             online = true
             return true
         } catch {
+            if await recoverViaMDNS() { return true }
             online = false
             return false
         }
+    }
+
+    /// IP salvo não respondeu: procura a máquina por `philco.local` e, se ela
+    /// aparecer em modo STA, passa a usar o IP novo que ela informa. Só roda no
+    /// caminho de falha, então o backoff do polling já limita a frequência.
+    private func recoverViaMDNS() async -> Bool {
+        guard let fallback = config.fallbackAPI,
+              let status = try? await fallback.getStatus() else { return false }
+        if status.wifiMode == "sta", let ip = status.ip, !ip.isEmpty {
+            config.adoptIP(ip)
+        }
+        apply(status)
+        online = true
+        return true
     }
 
     func loadProfiles() async {

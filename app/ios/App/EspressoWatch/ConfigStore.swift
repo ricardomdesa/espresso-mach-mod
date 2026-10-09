@@ -28,6 +28,21 @@ final class ConfigStore: NSObject {
         baseURL.map { MachineAPI(baseURL: $0, token: token) }
     }
 
+    /// Endereço mDNS da máquina (MDNS.begin("philco") no firmware). Usado
+    /// quando o IP salvo para de responder — o DHCP pode ter trocado o IP.
+    static let mdnsURL = URL(string: "http://philco.local")!
+
+    /// API pelo mDNS, ou nil se o endereço salvo já é o mDNS.
+    var fallbackAPI: MachineAPI? {
+        guard let baseURL, baseURL.host != Self.mdnsURL.host else { return nil }
+        return MachineAPI(baseURL: Self.mdnsURL, token: token)
+    }
+
+    /// Troca o IP guardado mantendo o código de pareamento.
+    func adoptIP(_ ip: String) {
+        update(baseURL: ip, token: token)
+    }
+
     func update(baseURL raw: String?, token: String?) {
         let url = raw.flatMap(Self.normalize)
         let tok = token?.trimmingCharacters(in: .whitespaces)

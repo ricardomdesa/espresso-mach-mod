@@ -10,5 +10,12 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<!-- Resolver philco.local (mDNS) quando o IP salvo para de responder. -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Controle da cafeteira Philco na rede local via Wi-Fi.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_http._tcp</string>
+	</array>
 </dict>
 </plist>
