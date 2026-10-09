@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		13F083166B4F124119A44AFC /* MachineStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E40D6AED9A81FD3011666A20 /* MachineStore.swift */; };
+		279B48AD7F2D70C1B34CAB9F /* MachineAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA027970E45D08D40AAD5AFA /* MachineAPI.swift */; };
+		2A42A17A92D523FCF91E01A0 /* WatchBridgePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93EF3652E1C21B2C0D8FBF3C /* WatchBridgePlugin.swift */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
 		30B79BAE76371928B668AE5D /* NetworkBinderPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = D28F21598F4FBADDC9B54D86 /* NetworkBinderPlugin.swift */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
@@ -15,13 +18,52 @@
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
+		57BDFE3B6CEACA14A88115ED /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8905A3FD4FEB8A673B397B4B /* RootView.swift */; };
+		64B092ACA8D5A7B414522401 /* SetpointView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C14A5CA4DC742AB016BA1A9 /* SetpointView.swift */; };
+		69F8A1C93616D0AF8288F2FD /* ControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90A86F10D4791B05A1F178CB /* ControlsView.swift */; };
+		6F6D75C2480F121820916C54 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88978FE8AE5C822BD4C01EAC /* DashboardView.swift */; };
+		8086F69C8CBD7C823013477D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AD158F5A71E1C7E3E7A93E32 /* Foundation.framework */; };
 		91EA6D360F874862C6AF93C6 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DF0E0192EAA981E2A3318D8 /* MainViewController.swift */; };
 		A084ECDBA7D38E1E42DFC39D /* Pods_App.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */; };
+		AE2A5DC6FF99F2A1E7272D71 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD27A951C1C73D38DB59AA80 /* Models.swift */; };
+		B6A96776CF00EC481928703D /* ProfilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3443569759EB10AD2E20F1EE /* ProfilesView.swift */; };
+		BFBFB7F9DBEBBEA8E5198DF6 /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 881C2A868B7779D362622631 /* SetupView.swift */; };
+		DAB0D9BE47CD9F6510742F72 /* EspressoWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AFD0981237FAA647504CA2F /* EspressoWatchApp.swift */; };
+		E7B6C0CA5E296BBDA2367427 /* ConfigStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F57C0FC991D09EA22302B86 /* ConfigStore.swift */; };
+		F61F5582733AEBAFF1E528EC /* EspressoWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 5FE7EBDBA21345470A7AD889 /* EspressoWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		AFE53FCB748074515E358221 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8E8D3ACB047485DC9E061F8B;
+			remoteInfo = EspressoWatch;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		4EF38D77E0661FE09F0EC15F /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				F61F5582733AEBAFF1E528EC /* EspressoWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		0AFD0981237FAA647504CA2F /* EspressoWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EspressoWatchApp.swift; sourceTree = "<group>"; };
+		1C14A5CA4DC742AB016BA1A9 /* SetpointView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SetpointView.swift; sourceTree = "<group>"; };
 		2DF0E0192EAA981E2A3318D8 /* MainViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
+		2F57C0FC991D09EA22302B86 /* ConfigStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConfigStore.swift; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
+		3443569759EB10AD2E20F1EE /* ProfilesView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfilesView.swift; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -30,10 +72,21 @@
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
+		5FE7EBDBA21345470A7AD889 /* EspressoWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EspressoWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8722FC6A5DABC2F8E7E42EE9 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		881C2A868B7779D362622631 /* SetupView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
+		88978FE8AE5C822BD4C01EAC /* DashboardView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		8905A3FD4FEB8A673B397B4B /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		90A86F10D4791B05A1F178CB /* ControlsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ControlsView.swift; sourceTree = "<group>"; };
+		93EF3652E1C21B2C0D8FBF3C /* WatchBridgePlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchBridgePlugin.swift; sourceTree = "<group>"; };
+		AD158F5A71E1C7E3E7A93E32 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/WatchOS.platform/Developer/SDKs/WatchOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_App.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF51FD2D460BCFE21FA515B2 /* Pods-App.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.release.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.release.xcconfig"; sourceTree = "<group>"; };
 		D28F21598F4FBADDC9B54D86 /* NetworkBinderPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NetworkBinderPlugin.swift; sourceTree = "<group>"; };
+		E40D6AED9A81FD3011666A20 /* MachineStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MachineStore.swift; sourceTree = "<group>"; };
+		FA027970E45D08D40AAD5AFA /* MachineAPI.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MachineAPI.swift; sourceTree = "<group>"; };
 		FC68EB0AF532CFC21C3344DD /* Pods-App.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.debug.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.debug.xcconfig"; sourceTree = "<group>"; };
+		FD27A951C1C73D38DB59AA80 /* Models.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -45,15 +98,52 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B24C5A6805EBB0F8BA05C84A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8086F69C8CBD7C823013477D /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		07CC9A889989B89738CC6805 /* watchOS */ = {
+			isa = PBXGroup;
+			children = (
+				AD158F5A71E1C7E3E7A93E32 /* Foundation.framework */,
+			);
+			name = watchOS;
+			sourceTree = "<group>";
+		};
 		27E2DDA53C4D2A4D1A88CE4A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
 				AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */,
+				07CC9A889989B89738CC6805 /* watchOS */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		400799AC4059FF31F99598BC /* EspressoWatch */ = {
+			isa = PBXGroup;
+			children = (
+				2F57C0FC991D09EA22302B86 /* ConfigStore.swift */,
+				90A86F10D4791B05A1F178CB /* ControlsView.swift */,
+				88978FE8AE5C822BD4C01EAC /* DashboardView.swift */,
+				0AFD0981237FAA647504CA2F /* EspressoWatchApp.swift */,
+				8722FC6A5DABC2F8E7E42EE9 /* Info.plist */,
+				FA027970E45D08D40AAD5AFA /* MachineAPI.swift */,
+				E40D6AED9A81FD3011666A20 /* MachineStore.swift */,
+				FD27A951C1C73D38DB59AA80 /* Models.swift */,
+				3443569759EB10AD2E20F1EE /* ProfilesView.swift */,
+				8905A3FD4FEB8A673B397B4B /* RootView.swift */,
+				1C14A5CA4DC742AB016BA1A9 /* SetpointView.swift */,
+				881C2A868B7779D362622631 /* SetupView.swift */,
+			);
+			name = EspressoWatch;
+			path = EspressoWatch;
 			sourceTree = "<group>";
 		};
 		504EC2FB1FED79650016851F = {
@@ -63,6 +153,7 @@
 				504EC3051FED79650016851F /* Products */,
 				7F8756D8B27F46E3366F6CEA /* Pods */,
 				27E2DDA53C4D2A4D1A88CE4A /* Frameworks */,
+				400799AC4059FF31F99598BC /* EspressoWatch */,
 			);
 			sourceTree = "<group>";
 		};
@@ -70,6 +161,7 @@
 			isa = PBXGroup;
 			children = (
 				504EC3041FED79650016851F /* App.app */,
+				5FE7EBDBA21345470A7AD889 /* EspressoWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -87,6 +179,7 @@
 				50B271D01FEDC1A000F3C39B /* public */,
 				D28F21598F4FBADDC9B54D86 /* NetworkBinderPlugin.swift */,
 				2DF0E0192EAA981E2A3318D8 /* MainViewController.swift */,
+				93EF3652E1C21B2C0D8FBF3C /* WatchBridgePlugin.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -112,14 +205,33 @@
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
 				9592DBEFFC6D2A0C8D5DEB22 /* [CP] Embed Pods Frameworks */,
+				4EF38D77E0661FE09F0EC15F /* Embed Watch Content */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2A68EFEEF93E61DD2B94FCEE /* PBXTargetDependency */,
+			);
+			name = App;
+			productName = App;
+			productReference = 504EC3041FED79650016851F /* App.app */;
+			productType = "com.apple.product-type.application";
+		};
+		8E8D3ACB047485DC9E061F8B /* EspressoWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BD595C528DA2960461EE4CB8 /* Build configuration list for PBXNativeTarget "EspressoWatch" */;
+			buildPhases = (
+				5994117920E15C5C330CDE8C /* Sources */,
+				B24C5A6805EBB0F8BA05C84A /* Frameworks */,
+				D5CE6DC757916F11BC7FFD90 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			name = App;
-			productName = App;
-			productReference = 504EC3041FED79650016851F /* App.app */;
+			name = EspressoWatch;
+			productName = EspressoWatch;
+			productReference = 5FE7EBDBA21345470A7AD889 /* EspressoWatch.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -152,6 +264,7 @@
 			projectRoot = "";
 			targets = (
 				504EC3031FED79650016851F /* App */,
+				8E8D3ACB047485DC9E061F8B /* EspressoWatch */,
 			);
 		};
 /* End PBXProject section */
@@ -167,6 +280,13 @@
 				50379B232058CBB4000EE86E /* capacitor.config.json in Resources */,
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D5CE6DC757916F11BC7FFD90 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -216,10 +336,38 @@
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				30B79BAE76371928B668AE5D /* NetworkBinderPlugin.swift in Sources */,
 				91EA6D360F874862C6AF93C6 /* MainViewController.swift in Sources */,
+				2A42A17A92D523FCF91E01A0 /* WatchBridgePlugin.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5994117920E15C5C330CDE8C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E7B6C0CA5E296BBDA2367427 /* ConfigStore.swift in Sources */,
+				69F8A1C93616D0AF8288F2FD /* ControlsView.swift in Sources */,
+				6F6D75C2480F121820916C54 /* DashboardView.swift in Sources */,
+				DAB0D9BE47CD9F6510742F72 /* EspressoWatchApp.swift in Sources */,
+				279B48AD7F2D70C1B34CAB9F /* MachineAPI.swift in Sources */,
+				13F083166B4F124119A44AFC /* MachineStore.swift in Sources */,
+				AE2A5DC6FF99F2A1E7272D71 /* Models.swift in Sources */,
+				B6A96776CF00EC481928703D /* ProfilesView.swift in Sources */,
+				57BDFE3B6CEACA14A88115ED /* RootView.swift in Sources */,
+				64B092ACA8D5A7B414522401 /* SetpointView.swift in Sources */,
+				BFBFB7F9DBEBBEA8E5198DF6 /* SetupView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		2A68EFEEF93E61DD2B94FCEE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = EspressoWatch;
+			target = 8E8D3ACB047485DC9E061F8B /* EspressoWatch */;
+			targetProxy = AFE53FCB748074515E358221 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		504EC30B1FED79650016851F /* Main.storyboard */ = {
@@ -241,6 +389,34 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		4D44B05E3D28B88266EF4083 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = JS62T344BW;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = EspressoWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ESPresso;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.rmdsistemas.espresso;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.rmdsistemas.espresso.watchkitapp;
+				PRODUCT_NAME = ESPresso;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				VALIDATE_PRODUCT = YES;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 		504EC3141FED79650016851F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -289,7 +465,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -340,7 +516,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
@@ -357,7 +533,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = JS62T344BW;
 				INFOPLIST_FILE = App/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MARKETING_VERSION = 1.0;
 				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
@@ -378,7 +554,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = JS62T344BW;
 				INFOPLIST_FILE = App/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.rmdsistemas.espresso;
@@ -388,6 +564,33 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
+		};
+		B949755D3B8420AF9D8868C7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = JS62T344BW;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = EspressoWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ESPresso;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.rmdsistemas.espresso;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.rmdsistemas.espresso.watchkitapp;
+				PRODUCT_NAME = ESPresso;
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
 		};
 /* End XCBuildConfiguration section */
 
@@ -406,6 +609,15 @@
 			buildConfigurations = (
 				504EC3171FED79650016851F /* Debug */,
 				504EC3181FED79650016851F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BD595C528DA2960461EE4CB8 /* Build configuration list for PBXNativeTarget "EspressoWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4D44B05E3D28B88266EF4083 /* Release */,
+				B949755D3B8420AF9D8868C7 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

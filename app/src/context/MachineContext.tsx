@@ -4,6 +4,7 @@ import { MachineStatus, WsFrame, WsEvent, ExtractionProfile } from '../api/types
 import { createApiClient, ApiClient } from '../api/client'
 import { useWebSocket, ConnectionState } from '../ws/useWebSocket'
 import { bindToWifi, unbindFromWifi } from '../native/networkBinder'
+import { syncWatch } from '../native/watchBridge'
 import {
   StoredProfile,
   PendingKind,
@@ -116,6 +117,15 @@ export const MachineProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const api = useMemo(() => {
     return state.baseUrl ? createApiClient(state.baseUrl, state.token) : null
   }, [state.baseUrl, state.token])
+
+  // Repassa a conexão ao Apple Watch. Prefere o IP que a máquina informa:
+  // o relógio nem sempre resolve `philco.local` (mDNS) quando a rede passa
+  // pelo iPhone via Bluetooth. Em modo AP (192.168.4.1) mantém a baseUrl.
+  const statusIp = state.status?.wifiMode === 'sta' ? state.status.ip : null
+  React.useEffect(() => {
+    const watchUrl = state.baseUrl && statusIp ? `http://${statusIp}` : state.baseUrl
+    syncWatch(watchUrl, state.token)
+  }, [state.baseUrl, state.token, statusIp])
 
   const refreshStatus = useCallback(async () => {
     if (!api) return
