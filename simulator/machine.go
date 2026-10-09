@@ -10,22 +10,31 @@ import (
 // Constantes espelhadas do firmware (include/controle.h, include/rede.h e
 // src/net/ApiServer.h). Mudou lá, muda aqui.
 const (
-	apiVersion            = 1
-	tempMaxSafetyC        = 115.0
-	tempBrewDefaultC      = 70.0
-	tempSteamDefaultC     = 90.0
-	tempSteamMinC         = 80.0
-	tempSteamMaxC         = tempMaxSafetyC
-	readyOnMarginC        = 1.0
-	readyOffMarginC       = 4.0
-	sensorFaultTimeoutMs  = 10000
-	pidIntervalMs         = 200
-	preheatToleranceC     = 2.0
-	preheatStableMs       = 3000
-	preheatTimeoutMs      = 180000
-	tempModeToleranceC    = 2.0 // DisplayModel::kTempToleranceC
-	maxProfileSteps       = 20
-	maxProfileStepSeconds = 600
+	apiVersion               = 1
+	tempMaxSafetyC           = 115.0
+	tempBrewDefaultC         = 70.0
+	tempSteamDefaultC        = 90.0
+	tempSteamMinC            = 80.0
+	tempSteamMaxC            = tempMaxSafetyC
+	readyOnMarginC           = 1.0
+	readyOffMarginC          = 4.0
+	sensorFaultTimeoutMs     = 10000
+	pidIntervalMs            = 200
+	pidIntegralBandC         = 8.0
+	pidIntegralMax           = 60.0
+	pumpFeedforwardDuty      = 100.0
+	pidIntegralResetAboveC   = 1.5
+	pumpFeedforwardMaxAboveC = 5.0
+	pumpFeedforwardTailMs    = 15000
+	pidStallWindowMs         = 10000
+	pidIntegralUnwindGain    = 5.0
+	pidStallMinRiseC         = 0.5
+	preheatToleranceC        = 2.0
+	preheatStableMs          = 3000
+	preheatTimeoutMs         = 180000
+	tempModeToleranceC       = 2.0 // DisplayModel::kTempToleranceC
+	maxProfileSteps          = 20
+	maxProfileStepSeconds    = 600
 )
 
 type runPhase uint8
@@ -106,10 +115,15 @@ type Machine struct {
 	sensorFault bool    // true = congela a idade da leitura -> dispara o failsafe
 
 	// PID posicional — porte fiel de src/control/PidController.cpp
-	duty        float64
-	integral    float64
-	pidLastTemp float64
-	pidLastMs   int64
+	duty         float64
+	integral     float64
+	lastPumpOnMs int64
+	stallRefMs   int64
+	stallRefTemp float64
+	stalled      bool
+	wasAbove     bool
+	pidLastTemp  float64
+	pidLastMs    int64
 
 	sensLastReadMs int64
 
@@ -311,12 +325,38 @@ func (m *Machine) pidUpdate(now int64) {
 	sp := m.effTarget()
 	err := sp - temp
 
-	m.integral += m.ki * err * dt
+	if m.pump {
+		m.lastPumpOnMs = now
+	}
+	pumpRecent := m.lastPumpOnMs != 0 && now-m.lastPumpOnMs < pumpFeedforwardTailMs
+	feedforward := pumpRecent && err > -pumpFeedforwardMaxAboveC
+
+	if m.stallRefMs == 0 || now-m.stallRefMs >= pidStallWindowMs {
+		m.stalled = m.stallRefMs != 0 && temp-m.stallRefTemp < pidStallMinRiseC
+		m.stallRefMs = now
+		m.stallRefTemp = temp
+	}
+	above := err < -pidIntegralResetAboveC
+	if above && !m.wasAbove {
+		m.integral *= 0.5
+	}
+	m.wasAbove = above
+	if above {
+		if !feedforward {
+			m.integral += m.ki * err * dt * pidIntegralUnwindGain
+		}
+	} else if !feedforward {
+		if math.Abs(err) < pidIntegralBandC {
+			m.integral += m.ki * err * dt
+		} else if m.stalled {
+			m.integral += m.ki * pidIntegralBandC * dt
+		}
+	}
 	if m.integral < 0 {
 		m.integral = 0
 	}
-	if m.integral > 100 {
-		m.integral = 100
+	if m.integral > pidIntegralMax {
+		m.integral = pidIntegralMax
 	}
 
 	dTemp := (temp - m.pidLastTemp) / dt
@@ -328,6 +368,9 @@ func (m *Machine) pidUpdate(now int64) {
 	}
 	if out > 100 {
 		out = 100
+	}
+	if feedforward && out < pumpFeedforwardDuty {
+		out = pumpFeedforwardDuty
 	}
 	m.duty = out
 }
@@ -666,6 +709,10 @@ func (m *Machine) Reset() {
 	m.duty = 0
 	m.integral = 0
 	m.pidLastMs = 0
+	m.lastPumpOnMs = 0
+	m.stallRefMs = 0
+	m.stalled = false
+	m.wasAbove = false
 	m.activeProfileID = ""
 	m.timerReset()
 }
@@ -682,6 +729,10 @@ func (m *Machine) Scenario(name string) error {
 		m.duty = 0
 		m.integral = 0
 		m.pidLastMs = 0
+		m.lastPumpOnMs = 0
+		m.stallRefMs = 0
+		m.stalled = false
+		m.wasAbove = false
 		m.steam = false
 		m.setpointC = 92
 	case "at-temp":
@@ -693,6 +744,10 @@ func (m *Machine) Scenario(name string) error {
 		// caldeira ficar parada no alvo em vez de despencar.
 		m.integral = clamp01x100(m.lossCoeff * (92 - m.ambientC) / m.heaterWatts * 100)
 		m.pidLastMs = 0
+		m.lastPumpOnMs = 0
+		m.stallRefMs = 0
+		m.stalled = false
+		m.wasAbove = false
 	case "hot":
 		m.tempC = 110
 		m.reading = 110
