@@ -28,7 +28,7 @@ APP_DIR="$ROOT/app"
 WORKSPACE="$APP_DIR/ios/App/App.xcworkspace"
 APP_PATH="$DERIVED_DATA/Build/Products/Debug-iphoneos/App.app"
 # PRODUCT_NAME do target EspressoWatch é "ESPresso"
-WATCH_APP_PATH="$APP_PATH/Watch/ESPresso.app"
+WATCH_APP_PATH="$DERIVED_DATA/Build/Products/Debug-watchos/ESPresso.app"
 
 if ! xcrun devicectl device info details --device "$IPHONE_ID" >/dev/null 2>&1; then
   echo "iPhone ($IPHONE_ID) não acessível. Desbloqueie e confira o Wi-Fi." >&2
@@ -38,6 +38,23 @@ fi
 if [ "$SKIP_WEB" -eq 0 ]; then
   echo "==> build web + cap sync ios"
   (cd "$APP_DIR" && npm run build && npx cap sync ios)
+fi
+
+if [ "$INSTALL_WATCH" -eq 1 ]; then
+  # Build mirando o relógio: registra o UDID dele na conta e gera o perfil do
+  # watchkitapp incluindo o relógio. Buildando só pro iPhone o perfil sai sem
+  # o relógio e a instalação falha com 0xe8008012.
+  echo "==> xcodebuild (scheme EspressoWatch, Debug)"
+  xcodebuild \
+    -workspace "$WORKSPACE" \
+    -scheme EspressoWatch \
+    -configuration Debug \
+    -destination "id=$WATCH_ID" \
+    -derivedDataPath "$DERIVED_DATA" \
+    -allowProvisioningUpdates \
+    -allowProvisioningDeviceRegistration \
+    -quiet \
+    build
 fi
 
 echo "==> xcodebuild (scheme App, Debug)"
